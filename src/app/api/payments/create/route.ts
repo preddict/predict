@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
         user_id: profile.id,
         amount_usd: amountNum.toString(),
       },
-      success_url: `${appUrl}/portfolio?deposit=success&amount=${amountNum}`,
+      success_url: `${appUrl}/portfolio?deposit=success&amount=${amountNum}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${appUrl}/portfolio?deposit=cancelled`,
     })
 
