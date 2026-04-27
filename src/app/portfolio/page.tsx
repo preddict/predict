@@ -12,6 +12,7 @@ import DepositButton from '@/components/portfolio/DepositButton'
 import WithdrawButton from '@/components/portfolio/WithdrawButton'
 import DepositToast from '@/components/portfolio/DepositToast'
 import AvatarUpload from '@/components/portfolio/AvatarUpload'
+import EditableName from '@/components/portfolio/EditableName'
 
 type Tab = 'open' | 'resolved' | 'history'
 
@@ -24,6 +25,7 @@ function PortfolioContent() {
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<Tab>('open')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [displayName, setDisplayName] = useState<string>('')
 
   function fetchPortfolio() {
     if (!authenticated) { setLoading(false); return }
@@ -46,6 +48,7 @@ function PortfolioContent() {
           setData(d)
           setLoading(false)
           if (d.profile?.avatar_url) setAvatarUrl(d.profile.avatar_url)
+          if (d.profile?.name) setDisplayName(d.profile.name)
         })
         .catch(() => setLoading(false))
     )
@@ -98,8 +101,11 @@ function PortfolioContent() {
               onUploaded={url => setAvatarUrl(url)}
             />
             <div>
-              <h1 className="text-2xl font-bold text-foreground">{profile?.name || 'Portfolio'}</h1>
-              <p className="text-sm text-muted-foreground mt-0.5">Click the photo to change it</p>
+              <EditableName
+                initialName={displayName || profile?.name || 'User'}
+                onSaved={name => setDisplayName(name)}
+              />
+              <p className="text-sm text-muted-foreground mt-0.5">Click the photo or name to edit</p>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">

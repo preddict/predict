@@ -7,6 +7,33 @@ const privy = new PrivyClient(
   process.env.PRIVY_APP_SECRET!
 )
 
+export async function PATCH(req: NextRequest) {
+  const authHeader = req.headers.get('authorization')
+  if (!authHeader) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  try {
+    const token = authHeader.replace('Bearer ', '')
+    const claims = await privy.verifyAuthToken(token)
+    const { name } = await req.json()
+
+    const trimmed = (name || '').trim()
+    if (!trimmed || trimmed.length < 2 || trimmed.length > 40) {
+      return NextResponse.json({ error: 'Name must be 2–40 characters' }, { status: 400 })
+    }
+
+    const admin = await createAdminClient()
+    const { error } = await admin
+      .from('profiles')
+      .update({ name: trimmed })
+      .eq('privy_id', claims.userId)
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ name: trimmed })
+  } catch {
+    return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+  }
+}
+
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization')
   if (!authHeader) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
