@@ -2,8 +2,8 @@ import { Suspense } from 'react'
 import { createAdminClient } from '@/lib/supabase/server'
 import Header from '@/components/layout/Header'
 import MarketCard from '@/components/markets/MarketCard'
-import SearchBar from '@/components/markets/SearchBar'
 import HeroSection from '@/components/markets/HeroSection'
+import SortSelect from '@/components/markets/SortSelect'
 import type { Market } from '@/types'
 
 interface PageProps {
@@ -51,10 +51,6 @@ export default async function HomePage({ searchParams }: PageProps) {
           <HeroSection featured={featured} trending={trending} />
         )}
 
-        <Suspense>
-          <SearchBar />
-        </Suspense>
-
         {q && (
           <p className="text-sm text-muted-foreground mb-4">
             {filtered.length} result{filtered.length !== 1 ? 's' : ''} for{' '}
@@ -70,6 +66,9 @@ export default async function HomePage({ searchParams }: PageProps) {
               </span>
               <div className="flex-1 h-px bg-border" />
               <span className="text-xs text-muted-foreground">{filtered.length}</span>
+              <Suspense>
+                <SortSelect current={sort} />
+              </Suspense>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {filtered.map(market => (
