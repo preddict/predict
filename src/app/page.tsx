@@ -6,15 +6,11 @@ import SearchBar from '@/components/markets/SearchBar'
 import HeroPanel from '@/components/markets/HeroPanel'
 import type { Market } from '@/types'
 
-function formatVolume(v: number) {
-  if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`
-  if (v >= 1_000) return `$${(v / 1_000).toFixed(0)}k`
-  return `$${v.toFixed(0)}`
-}
-
 interface PageProps {
   searchParams: Promise<{ category?: string; q?: string; sort?: string }>
 }
+
+const catLabel = (cat: string) => ({ politics: 'Politics', sports: 'Sports', economy: 'Economy', crypto: 'Crypto', entertainment: 'Entertainment', technology: 'Technology', world: 'World', weather: 'Weather' }[cat] || cat)
 
 export default async function HomePage({ searchParams }: PageProps) {
   const { category, q, sort = 'volume' } = await searchParams
@@ -25,13 +21,19 @@ export default async function HomePage({ searchParams }: PageProps) {
     admin.from('profiles').select('*', { count: 'exact', head: true }),
   ])
 
-  // Hero data from all open markets
-  const featured = allOpen?.[0] || null
-  const trending = allOpen?.slice(1, 7) || []
+  const topMarkets = allOpen?.slice(0, 5) || []
 
-  const { data: featuredHistory } = featured
-    ? await admin.from('price_history').select('yes_price, timestamp').eq('market_id', featured.id).order('timestamp', { ascending: true }).limit(60)
-    : { data: [] }
+  // Fetch price history for top 5 markets in parallel
+  const histories = await Promise.all(
+    topMarkets.map(m =>
+      admin.from('price_history').select('yes_price, timestamp').eq('market_id', m.id).order('timestamp', { ascending: true }).limit(60)
+        .then(r => ({ id: m.id, data: r.data || [] }))
+    )
+  )
+  const allHistories: Record<string, any[]> = {}
+  histories.forEach(h => { allHistories[h.id] = h.data })
+
+  const trending = allOpen?.slice(1, 7) || []
 
   // Hot topics by category volume
   const categoryVolumes: Record<string, number> = {}
@@ -52,9 +54,9 @@ export default async function HomePage({ searchParams }: PageProps) {
   if (sort === 'closing') filtered = [...filtered].sort((a, b) => new Date(a.closes_at).getTime() - new Date(b.closes_at).getTime())
 
   const showHero = !q && !category
-  const featuredIds = new Set([featured?.id, ...trending.map(m => m.id)])
+  const heroIds = new Set(topMarkets.map(m => m.id))
   const gridMarkets = showHero && sort === 'volume'
-    ? filtered.filter(m => !featuredIds.has(m.id))
+    ? filtered.filter(m => !heroIds.has(m.id))
     : filtered
 
   return (
@@ -62,25 +64,24 @@ export default async function HomePage({ searchParams }: PageProps) {
       <Header />
       <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
 
-        {/* Hero panel */}
         {showHero && (
           <HeroPanel
-            featured={featured}
-            history={featuredHistory || []}
+            featured={topMarkets[0] || null}
+            history={allHistories[topMarkets[0]?.id] || []}
             trending={trending as any}
             hotTopics={hotTopics}
             totalMarkets={allOpen?.length || 0}
             totalVolume={totalVolume}
             totalTraders={totalUsers || 0}
+            allFeatured={topMarkets as any}
+            allHistories={allHistories}
           />
         )}
 
-        {/* Search + Filters */}
         <Suspense>
           <SearchBar />
         </Suspense>
 
-        {/* Search result count */}
         {q && (
           <p className="text-sm text-muted-foreground mb-4">
             {filtered.length} result{filtered.length !== 1 ? 's' : ''} for{' '}
@@ -88,12 +89,11 @@ export default async function HomePage({ searchParams }: PageProps) {
           </p>
         )}
 
-        {/* Market grid */}
         {gridMarkets.length > 0 ? (
           <section>
             <div className="flex items-center gap-3 mb-4">
               <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                {category ? categoryLabel(category) : q ? 'Results' : 'All markets'}
+                {category ? catLabel(category) : q ? 'Results' : 'All markets'}
               </span>
               <div className="flex-1 h-px bg-border" />
               <span className="text-xs text-muted-foreground">{gridMarkets.length}</span>
@@ -117,12 +117,4 @@ export default async function HomePage({ searchParams }: PageProps) {
       </main>
     </div>
   )
-}
-
-function categoryLabel(cat: string) {
-  const labels: Record<string, string> = {
-    politics: 'Politics', sports: 'Sports', economy: 'Economy', crypto: 'Crypto',
-    entertainment: 'Entertainment', technology: 'Technology', world: 'World', weather: 'Weather',
-  }
-  return labels[cat] || cat
 }
