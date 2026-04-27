@@ -10,6 +10,7 @@ import { Clock, TrendingUp, Users } from 'lucide-react'
 import type { Market, PriceHistory } from '@/types'
 import Image from 'next/image'
 import MarketComments from '@/components/markets/MarketComments'
+import { getMarketImage, cleanTitle } from '@/lib/marketUtils'
 
 const categoryLabels: Record<string, string> = {
   politics: 'Politics', sports: 'Sports', economy: 'Economy',
@@ -46,6 +47,8 @@ export default async function MarketPage({ params }: PageProps) {
   const yesPercent = Math.round(m.yes_price * 100)
   const noPercent = 100 - yesPercent
   const isOpen = m.status === 'open'
+  const marketImage = getMarketImage(m)
+  const marketTitle = cleanTitle(m.title)
 
   return (
     <div className="min-h-screen bg-background">
@@ -66,11 +69,9 @@ export default async function MarketPage({ params }: PageProps) {
             {/* Header card */}
             <div className="rounded-xl border border-border bg-card p-6">
               <div className="flex gap-4">
-                {m.image_url && (
-                  <div className="shrink-0 w-16 h-16 rounded-xl overflow-hidden border border-border bg-muted">
-                    <Image src={m.image_url} alt={m.title} width={64} height={64} className="w-full h-full object-cover" unoptimized />
-                  </div>
-                )}
+                <div className="shrink-0 w-16 h-16 rounded-xl overflow-hidden border border-border bg-muted">
+                  <Image src={marketImage} alt={marketTitle} width={64} height={64} className="w-full h-full object-cover" unoptimized />
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2 mb-3">
                     <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-muted text-muted-foreground">
@@ -89,7 +90,7 @@ export default async function MarketPage({ params }: PageProps) {
                       </span>
                     )}
                   </div>
-                  <h1 className="text-xl sm:text-2xl font-bold text-foreground leading-snug mb-2">{m.title}</h1>
+                  <h1 className="text-xl sm:text-2xl font-bold text-foreground leading-snug mb-2">{marketTitle}</h1>
                 </div>
               </div>
               {m.description && (

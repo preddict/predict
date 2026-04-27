@@ -2,6 +2,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { TrendingUp, Clock, Users } from 'lucide-react'
 import type { Market, MarketCategory } from '@/types'
+import { getMarketImage, cleanTitle } from '@/lib/marketUtils'
 
 const categoryLabels: Record<MarketCategory, string> = {
   politics: 'Politics', sports: 'Sports', economy: 'Economy',
@@ -12,17 +13,6 @@ const categoryLabels: Record<MarketCategory, string> = {
 const categoryEmoji: Record<MarketCategory, string> = {
   politics: '🏛️', sports: '🏆', economy: '📈', crypto: '₿',
   entertainment: '🎬', technology: '💻', world: '🌍', weather: '🌤️',
-}
-
-const categoryGradient: Record<MarketCategory, string> = {
-  politics: 'from-blue-900 to-blue-700',
-  sports:   'from-green-800 to-green-600',
-  economy:  'from-emerald-800 to-emerald-600',
-  crypto:   'from-orange-800 to-orange-600',
-  entertainment: 'from-purple-900 to-purple-700',
-  technology:    'from-slate-800 to-slate-600',
-  world:    'from-sky-800 to-sky-600',
-  weather:  'from-cyan-800 to-cyan-600',
 }
 
 function formatVolume(v: number) {
@@ -44,27 +34,22 @@ function daysUntil(dateStr: string) {
 export default function MarketCard({ market }: { market: Market }) {
   const yesPercent = Math.round(market.yes_price * 100)
   const cat = market.category as MarketCategory
+  const imageUrl = getMarketImage(market)
+  const title = cleanTitle(market.title)
 
   return (
     <Link href={`/markets/${market.id}`} className="block h-full">
       <div className="group rounded-2xl border border-border bg-card hover:shadow-md hover:border-foreground/20 transition-all duration-200 overflow-hidden h-full flex flex-col">
 
-        {/* Image header — always full width */}
+        {/* Image — always a real photo */}
         <div className="relative h-36 shrink-0 overflow-hidden">
-          {market.image_url ? (
-            <Image
-              src={market.image_url}
-              alt={market.title}
-              fill
-              className="object-cover group-hover:scale-105 transition-transform duration-500"
-              unoptimized
-            />
-          ) : (
-            <div className={`w-full h-full bg-gradient-to-br ${categoryGradient[cat] || 'from-gray-800 to-gray-600'} flex items-center justify-center`}>
-              <span className="text-4xl opacity-60">{categoryEmoji[cat] || '📊'}</span>
-            </div>
-          )}
-          {/* Gradient overlay */}
+          <Image
+            src={imageUrl}
+            alt={title}
+            fill
+            className="object-cover group-hover:scale-105 transition-transform duration-500"
+            unoptimized
+          />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
 
           {/* Category badge */}
@@ -77,9 +62,8 @@ export default function MarketCard({ market }: { market: Market }) {
 
         {/* Content */}
         <div className="p-4 flex flex-col flex-1">
-          {/* Title */}
           <p className="text-sm font-semibold text-foreground leading-snug mb-3 flex-1 line-clamp-2">
-            {market.title}
+            {title}
           </p>
 
           {/* Probability bar */}

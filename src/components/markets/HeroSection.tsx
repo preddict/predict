@@ -4,6 +4,7 @@ import { useRealtimeMarkets } from '@/hooks/useRealtimeMarkets'
 import Image from 'next/image'
 import Link from 'next/link'
 import type { Market } from '@/types'
+import { getMarketImage, cleanTitle } from '@/lib/marketUtils'
 
 interface Props {
   featured: Market
@@ -47,21 +48,21 @@ export default function HeroSection({ featured: initFeatured, trending: initTren
   const yesP = Math.round(featured.yes_price * 100)
   const noP = 100 - yesP
   const bg = catBg[featured.category] || 'from-gray-900'
+  const featuredImage = getMarketImage(featured)
+  const featuredTitle = cleanTitle(featured.title)
 
   return (
     <div className="mb-8 space-y-3">
       {/* Featured market */}
       <Link href={`/markets/${featured.id}`} className="block group">
         <div className={`relative rounded-2xl overflow-hidden h-64 sm:h-72 bg-gradient-to-br ${bg} to-black`}>
-          {featured.image_url && (
-            <Image
-              src={featured.image_url}
-              alt={featured.title}
-              fill
-              className="object-cover opacity-40 group-hover:opacity-50 transition-opacity duration-500"
-              unoptimized
-            />
-          )}
+          <Image
+            src={featuredImage}
+            alt={featuredTitle}
+            fill
+            className="object-cover opacity-40 group-hover:opacity-50 transition-opacity duration-500"
+            unoptimized
+          />
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
 
           {/* Live badge */}
@@ -83,7 +84,7 @@ export default function HeroSection({ featured: initFeatured, trending: initTren
           {/* Content */}
           <div className="absolute bottom-0 left-0 right-0 p-5">
             <p className="text-white font-bold text-lg sm:text-xl leading-snug mb-3 line-clamp-2 drop-shadow">
-              {featured.title}
+              {featuredTitle}
             </p>
 
             {/* Probability */}
@@ -125,24 +126,22 @@ export default function HeroSection({ featured: initFeatured, trending: initTren
           {trending.slice(0, 4).map((m) => {
             const yp = Math.round(m.yes_price * 100)
             const flashing = flashIds.has(m.id)
+            const trendImg = getMarketImage(m)
+            const trendTitle = cleanTitle(m.title)
             return (
               <Link key={m.id} href={`/markets/${m.id}`} className="group">
                 <div className={`relative rounded-xl border overflow-hidden h-28 transition-all duration-300 ${flashing ? 'border-green-400/60 ring-1 ring-green-400/30' : 'border-border hover:border-foreground/40'}`}>
-                  {m.image_url ? (
-                    <Image
-                      src={m.image_url}
-                      alt={m.title}
-                      fill
-                      className="object-cover opacity-50 group-hover:opacity-60 transition-opacity"
-                      unoptimized
-                    />
-                  ) : (
-                    <div className={`absolute inset-0 bg-gradient-to-br ${catBg[m.category] || 'from-gray-800'} to-black opacity-60`} />
-                  )}
+                  <Image
+                    src={trendImg}
+                    alt={trendTitle}
+                    fill
+                    className="object-cover opacity-50 group-hover:opacity-60 transition-opacity"
+                    unoptimized
+                  />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
 
                   <div className="absolute bottom-0 left-0 right-0 p-3">
-                    <p className="text-white text-xs font-medium line-clamp-2 leading-snug mb-1.5">{m.title}</p>
+                    <p className="text-white text-xs font-medium line-clamp-2 leading-snug mb-1.5">{trendTitle}</p>
                     <div className="flex items-center gap-1.5">
                       <span className={`text-sm font-bold text-green-400 transition-all duration-300 ${flashing ? 'scale-110' : ''}`}>
                         {yp}%
