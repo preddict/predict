@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
 
     let { data: profile } = await admin
       .from('profiles')
-      .select('id, balance_brl, is_admin, name, email, wallet_address')
+      .select('id, balance_brl, is_admin, name, email, wallet_address, avatar_url')
       .eq('privy_id', privyUserId)
       .single()
 
@@ -56,6 +56,7 @@ export async function GET(req: NextRequest) {
       is_admin: profile?.is_admin || false,
       name: profile?.name || 'User',
       wallet_address: profile?.wallet_address || null,
+      avatar_url: (profile as any)?.avatar_url || null,
     })
   } catch {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 })

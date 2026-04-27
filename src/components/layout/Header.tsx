@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Search, LogOut, User, LayoutDashboard, Wallet, TrendingUp } from 'lucide-react'
 import NotificationBell from './NotificationBell'
+import Image from 'next/image'
 
 const navLinks = [
   { href: '/', label: 'All' },
@@ -28,6 +29,7 @@ export default function Header() {
   const [searchQuery, setSearchQuery] = useState('')
   const [balance, setBalance] = useState<number | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
 
   useEffect(() => {
     if (!authenticated || !user) return
@@ -37,6 +39,7 @@ export default function Header() {
         .then(d => {
           if (d.balance !== undefined) setBalance(d.balance)
           if (d.is_admin) setIsAdmin(true)
+          if (d.avatar_url) setAvatarUrl(d.avatar_url)
         }).catch(() => {})
     })
   }, [authenticated, user, getAccessToken])
@@ -89,6 +92,11 @@ export default function Header() {
                 <DropdownMenu>
                   <DropdownMenuTrigger className="outline-none">
                     <Avatar className="h-8 w-8 cursor-pointer ring-2 ring-border hover:ring-foreground transition-all">
+                      {avatarUrl && (
+                        <div className="w-full h-full relative overflow-hidden rounded-full">
+                          <Image src={avatarUrl} alt="Avatar" fill className="object-cover" unoptimized />
+                        </div>
+                      )}
                       <AvatarFallback className="bg-foreground text-background text-xs font-bold">
                         {initials}
                       </AvatarFallback>

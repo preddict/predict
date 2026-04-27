@@ -4,6 +4,7 @@ import Header from '@/components/layout/Header'
 import { TrendingUp, TrendingDown, Calendar, BarChart2 } from 'lucide-react'
 import Link from 'next/link'
 import type { Metadata } from 'next'
+import Image from 'next/image'
 
 interface PageProps {
   params: Promise<{ userId: string }>
@@ -67,7 +68,7 @@ export default async function ProfilePage({ params }: PageProps) {
 
   const { data: profile } = await admin
     .from('profiles')
-    .select('id, name, email, created_at')
+    .select('id, name, email, created_at, avatar_url')
     .eq('id', userId)
     .single()
 
@@ -105,8 +106,12 @@ export default async function ProfilePage({ params }: PageProps) {
 
         {/* Profile header */}
         <div className="rounded-2xl border border-border bg-card p-6 mb-6 flex items-center gap-5">
-          <div className="w-16 h-16 rounded-full bg-foreground flex items-center justify-center text-2xl font-bold text-background shrink-0">
-            {initials(profile)}
+          <div className="w-16 h-16 rounded-full overflow-hidden bg-foreground flex items-center justify-center text-2xl font-bold text-background shrink-0 ring-2 ring-border">
+            {(profile as any).avatar_url ? (
+              <Image src={(profile as any).avatar_url} alt={displayName(profile)} width={64} height={64} className="object-cover w-full h-full" unoptimized />
+            ) : (
+              initials(profile)
+            )}
           </div>
           <div className="flex-1 min-w-0">
             <h1 className="text-xl font-bold text-foreground">{displayName(profile)}</h1>

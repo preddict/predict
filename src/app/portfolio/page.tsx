@@ -11,6 +11,7 @@ import TransactionHistory from '@/components/portfolio/TransactionHistory'
 import DepositButton from '@/components/portfolio/DepositButton'
 import WithdrawButton from '@/components/portfolio/WithdrawButton'
 import DepositToast from '@/components/portfolio/DepositToast'
+import AvatarUpload from '@/components/portfolio/AvatarUpload'
 
 type Tab = 'open' | 'resolved' | 'history'
 
@@ -22,6 +23,7 @@ function PortfolioContent() {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<Tab>('open')
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
 
   function fetchPortfolio() {
     if (!authenticated) { setLoading(false); return }
@@ -40,7 +42,11 @@ function PortfolioContent() {
     getAccessToken().then(token =>
       fetch('/api/portfolio', { headers: { Authorization: `Bearer ${token}` } })
         .then(r => r.json())
-        .then(d => { setData(d); setLoading(false) })
+        .then(d => {
+          setData(d)
+          setLoading(false)
+          if (d.profile?.avatar_url) setAvatarUrl(d.profile.avatar_url)
+        })
         .catch(() => setLoading(false))
     )
   }, [ready, authenticated, getAccessToken])
@@ -84,12 +90,19 @@ function PortfolioContent() {
       <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8">
         <DepositToast status={deposit} />
 
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Portfolio</h1>
-            <p className="text-sm text-muted-foreground mt-1">Welcome back</p>
+        <div className="mb-8 flex items-start justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <AvatarUpload
+              currentUrl={avatarUrl}
+              initials={(profile?.name?.[0] || 'U').toUpperCase()}
+              onUploaded={url => setAvatarUrl(url)}
+            />
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">{profile?.name || 'Portfolio'}</h1>
+              <p className="text-sm text-muted-foreground mt-0.5">Click the photo to change it</p>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <WithdrawButton balance={profile?.balance_brl || 0} onSuccess={fetchPortfolio} />
             <DepositButton />
           </div>
