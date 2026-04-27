@@ -16,31 +16,46 @@ export async function GET(req: NextRequest) {
     const claims = await privy.verifyAuthToken(token)
     const privyUserId = claims.userId
 
+    // Get wallet address from Privy user
+    const privyUser = await privy.getUser(privyUserId)
+    const embeddedWallet = privyUser.linkedAccounts?.find(
+      (a: any) => a.type === 'wallet' && a.walletClientType === 'privy'
+    ) as any
+    const walletAddress = embeddedWallet?.address || null
+
     const admin = await createAdminClient()
 
-    // Get or create profile
     let { data: profile } = await admin
       .from('profiles')
-      .select('balance_brl, is_admin, name, email')
+      .select('id, balance_brl, is_admin, name, email, wallet_address')
       .eq('privy_id', privyUserId)
       .single()
 
     if (!profile) {
-      // First login — create profile
+      const emailAccount = privyUser.linkedAccounts?.find((a: any) => a.type === 'email') as any
+      const googleAccount = privyUser.linkedAccounts?.find((a: any) => a.type === 'google_oauth') as any
+      const email = emailAccount?.address || googleAccount?.email || null
+      const name = googleAccount?.name || email?.split('@')[0] || 'User'
+
       const { data: newProfile } = await admin.from('profiles').insert({
         privy_id: privyUserId,
-        email: claims.appId,
-        name: 'User',
+        email,
+        name,
         balance_brl: 0,
         is_admin: false,
+        wallet_address: walletAddress,
       }).select().single()
       profile = newProfile
+    } else if (walletAddress && !profile.wallet_address) {
+      await admin.from('profiles').update({ wallet_address: walletAddress }).eq('privy_id', privyUserId)
+      profile.wallet_address = walletAddress
     }
 
     return NextResponse.json({
       balance: profile?.balance_brl || 0,
       is_admin: profile?.is_admin || false,
       name: profile?.name || 'User',
+      wallet_address: profile?.wallet_address || null,
     })
   } catch {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
