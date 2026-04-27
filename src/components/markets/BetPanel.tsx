@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 import { useRouter } from 'next/navigation'
 import { calculateBuyCost, sharesForAmount, calculateSellReturn, calculatePotentialProfit, calculateFee } from '@/lib/lmsr'
+import { useRealtimeMarket } from '@/hooks/useRealtimeMarket'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 import type { Market, Position, BetSide } from '@/types'
@@ -14,9 +15,20 @@ interface Props {
 
 type Tab = 'buy' | 'sell'
 
-export default function BetPanel({ market }: Props) {
+export default function BetPanel({ market: initialMarket }: Props) {
   const { ready, authenticated, getAccessToken, login } = usePrivy()
   const router = useRouter()
+  const live = useRealtimeMarket(initialMarket.id, {
+    yes_price: initialMarket.yes_price,
+    no_price: initialMarket.no_price,
+    q_yes: initialMarket.q_yes,
+    q_no: initialMarket.q_no,
+    liquidity_b: initialMarket.liquidity_b,
+    volume_brl: initialMarket.volume_brl,
+    status: initialMarket.status,
+    outcome: initialMarket.outcome,
+  })
+  const market = { ...initialMarket, ...live }
 
   const [tab, setTab] = useState<Tab>('buy')
   const [side, setSide] = useState<BetSide>('yes')

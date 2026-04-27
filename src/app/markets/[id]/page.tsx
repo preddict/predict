@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import Header from '@/components/layout/Header'
 import BetPanel from '@/components/markets/BetPanel'
 import PriceChart from '@/components/markets/PriceChart'
+import LiveProbability from '@/components/markets/LiveProbability'
 import { Clock, TrendingUp, Users } from 'lucide-react'
 import type { Market, PriceHistory } from '@/types'
 import Image from 'next/image'
@@ -95,24 +96,8 @@ export default async function MarketPage({ params }: PageProps) {
               )}
             </div>
 
-            {/* Probabilities */}
-            <div className="rounded-xl border border-border bg-card p-5">
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div className="rounded-xl bg-green-50 border border-green-100 p-4 text-center">
-                  <div className="text-4xl font-bold text-green-600 mb-1">{yesPercent}%</div>
-                  <div className="text-xs text-muted-foreground mb-1">Yes chance</div>
-                  <div className="text-xs text-green-600 font-medium">${m.yes_price.toFixed(3)} / share</div>
-                </div>
-                <div className="rounded-xl bg-red-50 border border-red-100 p-4 text-center">
-                  <div className="text-4xl font-bold text-red-500 mb-1">{noPercent}%</div>
-                  <div className="text-xs text-muted-foreground mb-1">No chance</div>
-                  <div className="text-xs text-red-500 font-medium">${m.no_price.toFixed(3)} / share</div>
-                </div>
-              </div>
-              <div className="h-2 rounded-full bg-red-100 overflow-hidden">
-                <div className="h-full bg-green-500 rounded-full transition-all duration-700" style={{ width: `${yesPercent}%` }} />
-              </div>
-            </div>
+            {/* Probabilities — live realtime */}
+            <LiveProbability market={m} />
 
             {/* Chart */}
             <div className="rounded-xl border border-border bg-card p-5">
