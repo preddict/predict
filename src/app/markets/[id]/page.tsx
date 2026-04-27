@@ -11,6 +11,40 @@ import type { Market, PriceHistory } from '@/types'
 import Image from 'next/image'
 import MarketComments from '@/components/markets/MarketComments'
 import { getMarketImage, cleanTitle } from '@/lib/marketUtils'
+import type { Metadata } from 'next'
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { id } = await params
+  const admin = await createAdminClient()
+  const { data: market } = await admin
+    .from('markets')
+    .select('title, description, image_url, category, id')
+    .eq('id', id)
+    .single()
+
+  if (!market) return { title: 'Market not found' }
+
+  const title = cleanTitle(market.title)
+  const image = getMarketImage(market as any)
+  const desc = market.description || `Bet on "${title}" — will it happen?`
+
+  return {
+    title,
+    description: desc,
+    openGraph: {
+      title,
+      description: desc,
+      images: [{ url: image, width: 600, height: 400, alt: title }],
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description: desc,
+      images: [image],
+    },
+  }
+}
 
 const categoryLabels: Record<string, string> = {
   politics: 'Politics', sports: 'Sports', economy: 'Economy',

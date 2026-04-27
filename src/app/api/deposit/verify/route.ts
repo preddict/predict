@@ -62,6 +62,16 @@ export async function POST(req: NextRequest) {
     // Credit balance and update snapshot
     await admin.rpc('add_balance', { p_user_id: profile.id, p_amount: credited })
     await admin.from('profiles').update({ usdc_snapshot: onChainBalance }).eq('id', profile.id)
+
+    // In-app notification
+    await admin.from('notifications').insert({
+      user_id: profile.id,
+      type: 'deposit_confirmed',
+      title: 'Deposit confirmed',
+      body: `$${credited.toFixed(2)} has been added to your balance.`,
+      read: false,
+    })
+
     // Email confirmation — fire and forget
     if (profile.email) {
       sendDepositConfirmedEmail({ to: profile.email, name: profile.name || 'Trader', amount: credited })

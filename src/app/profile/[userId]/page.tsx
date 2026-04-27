@@ -3,9 +3,26 @@ import { notFound } from 'next/navigation'
 import Header from '@/components/layout/Header'
 import { TrendingUp, TrendingDown, Calendar, BarChart2 } from 'lucide-react'
 import Link from 'next/link'
+import type { Metadata } from 'next'
 
 interface PageProps {
   params: Promise<{ userId: string }>
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { userId } = await params
+  const admin = await createAdminClient()
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('name, email')
+    .eq('id', userId)
+    .single()
+
+  const name = profile?.name?.trim() || profile?.email?.split('@')[0] || 'Trader'
+  return {
+    title: `${name}'s Profile`,
+    description: `View ${name}'s prediction market portfolio and trading history on PREDICT.`,
+  }
 }
 
 function displayName(profile: { name?: string | null; email?: string | null }) {

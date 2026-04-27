@@ -72,6 +72,8 @@ export async function POST(req: NextRequest) {
 
     if (sellErr) return NextResponse.json({ error: sellErr.message }, { status: 400 })
 
+    try { await admin.rpc('refresh_market_bettors', { p_market_id: marketId }) } catch { /* silent */ }
+
     return NextResponse.json({ success: true, returnAmount, newYesPrice, newNoPrice })
   } catch {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 })

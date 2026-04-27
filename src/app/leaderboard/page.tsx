@@ -2,6 +2,12 @@ import { createAdminClient } from '@/lib/supabase/server'
 import Header from '@/components/layout/Header'
 import { Trophy, TrendingUp, TrendingDown } from 'lucide-react'
 import Link from 'next/link'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Leaderboard',
+  description: 'Top traders ranked by realized profit & loss on PREDICT.',
+}
 
 interface PageProps {
   searchParams: Promise<{ category?: string }>
