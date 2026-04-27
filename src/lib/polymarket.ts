@@ -17,7 +17,6 @@ export interface PolymarketMarket {
   events: Array<{ title: string; slug: string }>
 }
 
-// Maps Polymarket question/event text to our categories
 const categoryKeywords: Record<string, string[]> = {
   crypto: ['bitcoin', 'btc', 'ethereum', 'eth', 'crypto', 'solana', 'sol', 'doge', 'xrp', 'coin', 'token', 'defi', 'blockchain', 'nft', 'binance', 'coinbase'],
   politics: ['trump', 'biden', 'president', 'congress', 'senate', 'election', 'democrat', 'republican', 'white house', 'government', 'minister', 'parliament', 'impeach', 'executive order', 'veto', 'legislation', 'tariff', 'musk', 'doge department', 'harris'],
@@ -36,24 +35,32 @@ export function detectCategory(question: string, eventTitle = ''): string {
   return 'world'
 }
 
-export async function fetchPolymarketMarkets(limit = 100): Promise<PolymarketMarket[]> {
-  const url = `https://gamma-api.polymarket.com/markets?active=true&closed=false&limit=${limit}&order=volumeNum&ascending=false`
+async function fetchPage(offset: number, limit: number, closed = false): Promise<PolymarketMarket[]> {
+  const url = `https://gamma-api.polymarket.com/markets?active=${!closed}&closed=${closed}&limit=${limit}&offset=${offset}&order=volumeNum&ascending=false`
   const res = await fetch(url, {
     headers: { 'User-Agent': 'PREDICT/1.0' },
     next: { revalidate: 0 },
   })
-  if (!res.ok) throw new Error(`Polymarket API error: ${res.status}`)
+  if (!res.ok) return []
   return res.json()
 }
 
-export async function fetchResolvedMarkets(limit = 50): Promise<PolymarketMarket[]> {
-  const url = `https://gamma-api.polymarket.com/markets?closed=true&limit=${limit}&order=volumeNum&ascending=false`
-  const res = await fetch(url, {
-    headers: { 'User-Agent': 'PREDICT/1.0' },
-    next: { revalidate: 0 },
-  })
-  if (!res.ok) throw new Error(`Polymarket API error: ${res.status}`)
-  return res.json()
+export async function fetchPolymarketMarkets(total = 500): Promise<PolymarketMarket[]> {
+  const pageSize = 100
+  const pages = Math.ceil(total / pageSize)
+  const results = await Promise.all(
+    Array.from({ length: pages }, (_, i) => fetchPage(i * pageSize, pageSize, false))
+  )
+  return results.flat().slice(0, total)
+}
+
+export async function fetchResolvedMarkets(total = 100): Promise<PolymarketMarket[]> {
+  const pageSize = 100
+  const pages = Math.ceil(total / pageSize)
+  const results = await Promise.all(
+    Array.from({ length: pages }, (_, i) => fetchPage(i * pageSize, pageSize, true))
+  )
+  return results.flat().slice(0, total)
 }
 
 export function parseOutcome(outcomePrices: string): { yes: number; no: number } {

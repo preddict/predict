@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/server'
 import Header from '@/components/layout/Header'
 import { Trophy, TrendingUp, TrendingDown } from 'lucide-react'
+import Link from 'next/link'
 
 function formatPnl(v: number) {
   const abs = Math.abs(v)
@@ -144,7 +145,7 @@ export default async function LeaderboardPage() {
                   >
                     {trader.initials}
                   </div>
-                  <p className={`font-semibold text-foreground text-center ${isFist ? 'text-base' : 'text-sm'}`}>{trader.name}</p>
+                  <Link href={`/profile/${trader.id}`} className={`font-semibold text-foreground text-center hover:underline ${isFist ? 'text-base' : 'text-sm'}`}>{trader.name}</Link>
                   <p className={`font-bold mt-1 ${trader.pnl >= 0 ? 'text-green-500' : 'text-red-500'} ${isFist ? 'text-xl' : 'text-base'}`}>
                     {formatPnl(trader.pnl)}
                   </p>
@@ -186,15 +187,15 @@ export default async function LeaderboardPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3.5">
-                      <div className="flex items-center gap-2.5">
+                      <Link href={`/profile/${trader.id}`} className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
                         <div
                           className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-background shrink-0"
                           style={{ background: i < 3 ? medalColors[i] : '#6B7280' }}
                         >
                           {trader.initials}
                         </div>
-                        <span className="font-medium text-foreground">{trader.name}</span>
-                      </div>
+                        <span className="font-medium text-foreground hover:underline">{trader.name}</span>
+                      </Link>
                     </td>
                     <td className="px-4 py-3.5 text-right">
                       <div className="flex items-center justify-end gap-1">

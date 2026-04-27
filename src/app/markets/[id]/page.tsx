@@ -9,6 +9,7 @@ import LiveProbability from '@/components/markets/LiveProbability'
 import { Clock, TrendingUp, Users } from 'lucide-react'
 import type { Market, PriceHistory } from '@/types'
 import Image from 'next/image'
+import MarketComments from '@/components/markets/MarketComments'
 
 const categoryLabels: Record<string, string> = {
   politics: 'Politics', sports: 'Sports', economy: 'Economy',
@@ -119,6 +120,9 @@ export default async function MarketPage({ params }: PageProps) {
                 </div>
               ))}
             </div>
+
+            {/* Comments */}
+            <MarketComments marketId={m.id} />
           </div>
 
           {/* Bet panel — fully client-side, manages own auth */}
