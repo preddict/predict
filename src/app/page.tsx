@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import Header from '@/components/layout/Header'
 import MarketCard from '@/components/markets/MarketCard'
 import SearchBar from '@/components/markets/SearchBar'
+import HeroTicker from '@/components/markets/HeroTicker'
 import type { Market } from '@/types'
 
 function formatVolume(v: number) {
@@ -19,8 +20,8 @@ export default async function HomePage({ searchParams }: PageProps) {
   const { category, q, sort = 'volume' } = await searchParams
   const admin = await createAdminClient()
 
-  // Platform stats
-  const [{ data: markets }, { count: totalUsers }] = await Promise.all([
+  // Platform stats + ticker markets
+  const [{ data: markets }, { count: totalUsers }, { data: tickerMarkets }] = await Promise.all([
     (() => {
       let query = admin
         .from('markets')
@@ -37,6 +38,7 @@ export default async function HomePage({ searchParams }: PageProps) {
       return query.limit(60)
     })(),
     admin.from('profiles').select('*', { count: 'exact', head: true }),
+    admin.from('markets').select('id, title, category, yes_price, image_url').eq('status', 'open').order('volume_brl', { ascending: false }).limit(20),
   ])
 
   const totalVolume = (markets || []).reduce((s, m) => s + (m.volume_brl || 0), 0)
@@ -79,6 +81,9 @@ export default async function HomePage({ searchParams }: PageProps) {
                 <p className="text-xs text-muted-foreground">Traders</p>
               </div>
             </div>
+
+            {/* Live ticker */}
+            <HeroTicker markets={tickerMarkets || []} />
           </div>
         )}
 
