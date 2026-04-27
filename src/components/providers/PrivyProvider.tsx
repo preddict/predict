@@ -10,7 +10,7 @@ export default function PrivyProviderWrapper({ children }: { children: React.Rea
         appearance: {
           theme: 'light',
           accentColor: '#111111',
-          logo: '/logo.png',
+          logo: 'https://predict-sigma-nine.vercel.app/logo.svg',
         },
         loginMethods: ['email', 'google', 'wallet'],
         embeddedWallets: {
