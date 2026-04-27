@@ -19,6 +19,7 @@ const navLinks = [
   { href: '/?category=economy', label: 'Economy' },
   { href: '/?category=entertainment', label: 'Entertainment' },
   { href: '/?category=world', label: 'World' },
+  { href: '/leaderboard', label: '🏆 Leaderboard' },
 ]
 
 export default function Header() {
