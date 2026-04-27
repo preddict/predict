@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import Header from '@/components/layout/Header'
 import MarketCard from '@/components/markets/MarketCard'
 import SearchBar from '@/components/markets/SearchBar'
-import HeroTicker from '@/components/markets/HeroTicker'
+import HeroPanel from '@/components/markets/HeroPanel'
 import type { Market } from '@/types'
 
 function formatVolume(v: number) {
@@ -20,71 +20,59 @@ export default async function HomePage({ searchParams }: PageProps) {
   const { category, q, sort = 'volume' } = await searchParams
   const admin = await createAdminClient()
 
-  // Platform stats + ticker markets
-  const [{ data: markets }, { count: totalUsers }, { data: tickerMarkets }] = await Promise.all([
-    (() => {
-      let query = admin
-        .from('markets')
-        .select('*')
-        .eq('status', 'open')
-
-      if (category) query = query.eq('category', category)
-      if (q) query = query.ilike('title', `%${q}%`)
-
-      if (sort === 'newest') query = query.order('created_at', { ascending: false })
-      else if (sort === 'closing') query = query.order('closes_at', { ascending: true })
-      else query = query.order('volume_brl', { ascending: false })
-
-      return query.limit(60)
-    })(),
+  const [{ data: allOpen }, { count: totalUsers }] = await Promise.all([
+    admin.from('markets').select('*').eq('status', 'open').order('volume_brl', { ascending: false }).limit(100),
     admin.from('profiles').select('*', { count: 'exact', head: true }),
-    admin.from('markets').select('id, title, category, yes_price, image_url').eq('status', 'open').order('volume_brl', { ascending: false }).limit(20),
   ])
 
-  const totalVolume = (markets || []).reduce((s, m) => s + (m.volume_brl || 0), 0)
-  const featured = (!q && !category && sort === 'volume') ? (markets || []).slice(0, 3) : []
-  const rest = featured.length > 0 ? (markets || []).slice(3) : (markets || [])
+  // Hero data from all open markets
+  const featured = allOpen?.[0] || null
+  const trending = allOpen?.slice(1, 7) || []
+
+  const { data: featuredHistory } = featured
+    ? await admin.from('price_history').select('yes_price, timestamp').eq('market_id', featured.id).order('timestamp', { ascending: true }).limit(60)
+    : { data: [] }
+
+  // Hot topics by category volume
+  const categoryVolumes: Record<string, number> = {}
+  for (const m of allOpen || []) {
+    categoryVolumes[m.category] = (categoryVolumes[m.category] || 0) + (m.volume_brl || 0)
+  }
+  const hotTopics = Object.entries(categoryVolumes)
+    .map(([category, volume]) => ({ category, volume }))
+    .sort((a, b) => b.volume - a.volume)
+
+  const totalVolume = (allOpen || []).reduce((s, m) => s + (m.volume_brl || 0), 0)
+
+  // Filtered markets for grid
+  let filtered = allOpen || []
+  if (category) filtered = filtered.filter(m => m.category === category)
+  if (q) filtered = filtered.filter(m => m.title.toLowerCase().includes(q.toLowerCase()))
+  if (sort === 'newest') filtered = [...filtered].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  if (sort === 'closing') filtered = [...filtered].sort((a, b) => new Date(a.closes_at).getTime() - new Date(b.closes_at).getTime())
+
+  const showHero = !q && !category
+  const featuredIds = new Set([featured?.id, ...trending.map(m => m.id)])
+  const gridMarkets = showHero && sort === 'volume'
+    ? filtered.filter(m => !featuredIds.has(m.id))
+    : filtered
 
   return (
     <div className="min-h-screen bg-background">
       <Header />
       <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
 
-        {/* Hero */}
-        {!q && !category && (
-          <div className="mb-8 rounded-2xl border border-border bg-card px-8 pt-10 pb-0 overflow-hidden">
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">
-              Prediction Markets
-            </p>
-            <h1 className="text-4xl font-bold text-foreground mb-3 leading-tight">
-              Predict the future.<br />
-              <span className="text-muted-foreground font-normal">Earn real money.</span>
-            </h1>
-            <p className="text-muted-foreground text-sm max-w-md mb-8">
-              Bet on real-world events. Prices reflect collective probability in real time.
-            </p>
-
-            {/* Stats */}
-            <div className="flex flex-wrap gap-6">
-              <div>
-                <p className="text-2xl font-bold text-foreground">{markets?.length || 0}</p>
-                <p className="text-xs text-muted-foreground">Open markets</p>
-              </div>
-              <div className="w-px bg-border" />
-              <div>
-                <p className="text-2xl font-bold text-foreground">{formatVolume(totalVolume)}</p>
-                <p className="text-xs text-muted-foreground">Total volume</p>
-              </div>
-              <div className="w-px bg-border" />
-              <div>
-                <p className="text-2xl font-bold text-foreground">{totalUsers || 0}</p>
-                <p className="text-xs text-muted-foreground">Traders</p>
-              </div>
-            </div>
-
-            {/* Live ticker */}
-            <HeroTicker markets={tickerMarkets || []} />
-          </div>
+        {/* Hero panel */}
+        {showHero && (
+          <HeroPanel
+            featured={featured}
+            history={featuredHistory || []}
+            trending={trending as any}
+            hotTopics={hotTopics}
+            totalMarkets={allOpen?.length || 0}
+            totalVolume={totalVolume}
+            totalTraders={totalUsers || 0}
+          />
         )}
 
         {/* Search + Filters */}
@@ -95,46 +83,28 @@ export default async function HomePage({ searchParams }: PageProps) {
         {/* Search result count */}
         {q && (
           <p className="text-sm text-muted-foreground mb-4">
-            {markets?.length || 0} result{markets?.length !== 1 ? 's' : ''} for{' '}
+            {filtered.length} result{filtered.length !== 1 ? 's' : ''} for{' '}
             <span className="font-medium text-foreground">&quot;{q}&quot;</span>
           </p>
         )}
 
-        {/* Featured */}
-        {featured.length > 0 && (
-          <section className="mb-8">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Featured</span>
-              <div className="flex-1 h-px bg-border" />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {featured.map(market => (
-                <MarketCard key={market.id} market={market as Market} featured />
-              ))}
-            </div>
-          </section>
-        )}
-
         {/* Market grid */}
-        {rest.length > 0 && (
+        {gridMarkets.length > 0 ? (
           <section>
-            {!q && featured.length > 0 && (
-              <div className="flex items-center gap-3 mb-4">
-                <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">All markets</span>
-                <div className="flex-1 h-px bg-border" />
-                <span className="text-xs text-muted-foreground">{rest.length}</span>
-              </div>
-            )}
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                {category ? categoryLabel(category) : q ? 'Results' : 'All markets'}
+              </span>
+              <div className="flex-1 h-px bg-border" />
+              <span className="text-xs text-muted-foreground">{gridMarkets.length}</span>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {rest.map(market => (
+              {gridMarkets.map(market => (
                 <MarketCard key={market.id} market={market as Market} />
               ))}
             </div>
           </section>
-        )}
-
-        {/* Empty */}
-        {!markets?.length && (
+        ) : (
           <div className="text-center py-20">
             <p className="text-base font-medium text-foreground">
               {q ? 'No markets found' : 'No open markets yet'}
@@ -147,4 +117,12 @@ export default async function HomePage({ searchParams }: PageProps) {
       </main>
     </div>
   )
+}
+
+function categoryLabel(cat: string) {
+  const labels: Record<string, string> = {
+    politics: 'Politics', sports: 'Sports', economy: 'Economy', crypto: 'Crypto',
+    entertainment: 'Entertainment', technology: 'Technology', world: 'World', weather: 'Weather',
+  }
+  return labels[cat] || cat
 }
