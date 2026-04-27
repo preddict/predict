@@ -1,8 +1,8 @@
 import Link from 'next/link'
-import Image from 'next/image'
 import { TrendingUp, Clock, Users } from 'lucide-react'
 import type { Market, MarketCategory } from '@/types'
 import { getMarketImage, cleanTitle } from '@/lib/marketUtils'
+import { MarketImage } from '@/components/ui/market-image'
 
 const categoryLabels: Record<MarketCategory, string> = {
   politics: 'Politics', sports: 'Sports', economy: 'Economy',
@@ -43,12 +43,13 @@ export default function MarketCard({ market }: { market: Market }) {
 
         {/* Image — always a real photo */}
         <div className="relative h-36 shrink-0 overflow-hidden">
-          <Image
+          <MarketImage
             src={imageUrl}
             alt={title}
             fill
             className="object-cover group-hover:scale-105 transition-transform duration-500"
-            unoptimized
+            category={market.category}
+            marketId={market.id}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
 

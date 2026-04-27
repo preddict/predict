@@ -1,10 +1,10 @@
 'use client'
 
 import { useRealtimeMarkets } from '@/hooks/useRealtimeMarkets'
-import Image from 'next/image'
 import Link from 'next/link'
 import type { Market } from '@/types'
 import { getMarketImage, cleanTitle } from '@/lib/marketUtils'
+import { MarketImage } from '@/components/ui/market-image'
 
 interface Props {
   featured: Market
@@ -56,12 +56,13 @@ export default function HeroSection({ featured: initFeatured, trending: initTren
       {/* Featured market */}
       <Link href={`/markets/${featured.id}`} className="block group">
         <div className={`relative rounded-2xl overflow-hidden h-64 sm:h-72 bg-gradient-to-br ${bg} to-black`}>
-          <Image
+          <MarketImage
             src={featuredImage}
             alt={featuredTitle}
             fill
             className="object-cover opacity-40 group-hover:opacity-50 transition-opacity duration-500"
-            unoptimized
+            category={featured.category}
+            marketId={featured.id}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
 
@@ -131,12 +132,13 @@ export default function HeroSection({ featured: initFeatured, trending: initTren
             return (
               <Link key={m.id} href={`/markets/${m.id}`} className="group">
                 <div className={`relative rounded-xl border overflow-hidden h-28 transition-all duration-300 ${flashing ? 'border-green-400/60 ring-1 ring-green-400/30' : 'border-border hover:border-foreground/40'}`}>
-                  <Image
+                  <MarketImage
                     src={trendImg}
                     alt={trendTitle}
                     fill
                     className="object-cover opacity-50 group-hover:opacity-60 transition-opacity"
-                    unoptimized
+                    category={m.category}
+                    marketId={m.id}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
 

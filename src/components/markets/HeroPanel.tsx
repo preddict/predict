@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts'
 import { TrendingUp, TrendingDown, Flame, ChevronRight } from 'lucide-react'
+import { getMarketImage } from '@/lib/marketUtils'
+import { MarketImage } from '@/components/ui/market-image'
 
 interface FeaturedMarket {
   id: string
@@ -142,19 +143,14 @@ export default function HeroPanel({ featured: initialFeatured, history: initialH
 
           {/* Market image */}
           <Link href={`/markets/${featured.id}`} className="relative h-48 shrink-0 overflow-hidden block group">
-            {featured.image_url ? (
-              <Image
-                src={featured.image_url}
-                alt={featured.title}
-                fill
-                className="object-cover group-hover:scale-105 transition-transform duration-700"
-                unoptimized
-              />
-            ) : (
-              <div className={`w-full h-full bg-gradient-to-br ${categoryGradient[featured.category] || 'from-gray-800 to-gray-600'} flex items-center justify-center`}>
-                <span className="text-6xl opacity-40">{categoryEmoji[featured.category] || '📊'}</span>
-              </div>
-            )}
+            <MarketImage
+              src={getMarketImage({ image_url: featured.image_url, category: featured.category, id: featured.id })}
+              alt={featured.title}
+              fill
+              className="object-cover group-hover:scale-105 transition-transform duration-700"
+              category={featured.category}
+              marketId={featured.id}
+            />
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
             <div className="absolute bottom-3 left-4">
               <span className="px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-sm text-white text-xs font-medium">
@@ -245,10 +241,16 @@ export default function HeroPanel({ featured: initialFeatured, history: initialH
                 return (
                   <Link key={m.id} href={`/markets/${m.id}`} className="flex items-center gap-3 group">
                     <span className="text-xs font-bold text-muted-foreground w-4 shrink-0 tabular-nums">{i + 1}</span>
-                    <div className="w-8 h-8 rounded-lg overflow-hidden bg-muted border border-border shrink-0 flex items-center justify-center">
-                      {m.image_url
-                        ? <Image src={m.image_url} alt="" width={32} height={32} className="w-full h-full object-cover" unoptimized />
-                        : <span className="text-sm">{categoryEmoji[m.category] || '📊'}</span>}
+                    <div className="w-8 h-8 rounded-lg overflow-hidden bg-muted border border-border shrink-0">
+                      <MarketImage
+                        src={getMarketImage({ image_url: m.image_url, category: m.category, id: m.id })}
+                        alt=""
+                        width={32}
+                        height={32}
+                        className="w-full h-full object-cover"
+                        category={m.category}
+                        marketId={m.id}
+                      />
                     </div>
                     <p className="flex-1 text-xs text-foreground line-clamp-1 group-hover:underline underline-offset-2 min-w-0">{m.title}</p>
                     <div className="shrink-0 text-right ml-2">

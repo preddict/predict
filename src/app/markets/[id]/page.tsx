@@ -8,9 +8,9 @@ import PriceChart from '@/components/markets/PriceChart'
 import LiveProbability from '@/components/markets/LiveProbability'
 import { Clock, TrendingUp, Users } from 'lucide-react'
 import type { Market, PriceHistory } from '@/types'
-import Image from 'next/image'
 import MarketComments from '@/components/markets/MarketComments'
 import { getMarketImage, cleanTitle } from '@/lib/marketUtils'
+import { MarketImage } from '@/components/ui/market-image'
 import type { Metadata } from 'next'
 import ShareButton from '@/components/markets/ShareButton'
 import { MarketRealtimeProvider } from '@/components/markets/MarketRealtimeProvider'
@@ -114,7 +114,7 @@ export default async function MarketPage({ params }: PageProps) {
             <div className="rounded-xl border border-border bg-card p-6">
               <div className="flex gap-4">
                 <div className="shrink-0 w-16 h-16 rounded-xl overflow-hidden border border-border bg-muted">
-                  <Image src={marketImage} alt={marketTitle} width={64} height={64} className="w-full h-full object-cover" unoptimized />
+                  <MarketImage src={marketImage} alt={marketTitle} width={64} height={64} className="w-full h-full object-cover" category={m.category} marketId={m.id} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2 mb-3">
