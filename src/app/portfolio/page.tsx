@@ -2,14 +2,16 @@
 
 import { usePrivy } from '@privy-io/react-auth'
 import { useEffect, useState } from 'react'
+import { Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Header from '@/components/layout/Header'
 import PortfolioStats from '@/components/portfolio/PortfolioStats'
 import PositionCard from '@/components/portfolio/PositionCard'
 import TransactionHistory from '@/components/portfolio/TransactionHistory'
 import DepositButton from '@/components/portfolio/DepositButton'
 import DepositToast from '@/components/portfolio/DepositToast'
-import { useSearchParams } from 'next/navigation'
-import { Suspense } from 'react'
+
+type Tab = 'open' | 'resolved' | 'history'
 
 function PortfolioContent() {
   const { ready, authenticated, getAccessToken } = usePrivy()
@@ -18,6 +20,7 @@ function PortfolioContent() {
 
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [tab, setTab] = useState<Tab>('open')
 
   useEffect(() => {
     if (!ready) return
@@ -55,6 +58,15 @@ function PortfolioContent() {
 
   const { profile, openPositions = [], resolvedPositions = [], transactions = [], invested = 0, currentValue = 0, resolvedPnl = 0 } = data || {}
 
+  const wins = resolvedPositions.filter((p: any) => p.market?.outcome === p.side).length
+  const winRate = resolvedPositions.length > 0 ? (wins / resolvedPositions.length) * 100 : -1
+
+  const tabs: { key: Tab; label: string; count?: number }[] = [
+    { key: 'open', label: 'Open', count: openPositions.length },
+    { key: 'resolved', label: 'Resolved', count: resolvedPositions.length },
+    { key: 'history', label: 'History', count: transactions.length },
+  ]
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -74,45 +86,60 @@ function PortfolioContent() {
           invested={invested}
           currentValue={currentValue}
           resolvedPnl={resolvedPnl}
+          winRate={winRate}
         />
 
-        <div className="mt-10 space-y-8">
-          <section>
-            <h2 className="text-sm font-semibold mb-4">
-              Open Positions
-              <span className="ml-2 text-muted-foreground font-normal">({openPositions.length})</span>
-            </h2>
-            {openPositions.length === 0 ? (
-              <div className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
-                No open positions yet.{' '}
-                <a href="/" className="text-foreground underline underline-offset-2">Browse markets</a> to place your first bet.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {openPositions.map((p: any) => <PositionCard key={p.id} position={p} />)}
-              </div>
-            )}
-          </section>
-
-          {resolvedPositions.length > 0 && (
-            <section>
-              <h2 className="text-sm font-semibold mb-4">
-                Resolved Positions
-                <span className="ml-2 text-muted-foreground font-normal">({resolvedPositions.length})</span>
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {resolvedPositions.map((p: any) => <PositionCard key={p.id} position={p} />)}
-              </div>
-            </section>
-          )}
-
-          <section>
-            <h2 className="text-sm font-semibold mb-4">Transaction History</h2>
-            <div className="rounded-xl border border-border bg-card overflow-hidden">
-              <TransactionHistory transactions={transactions} />
-            </div>
-          </section>
+        {/* Tabs */}
+        <div className="mt-10 flex gap-1 border-b border-border mb-6">
+          {tabs.map(t => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                tab === t.key
+                  ? 'border-foreground text-foreground'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {t.label}
+              {t.count !== undefined && t.count > 0 && (
+                <span className="ml-1.5 text-xs text-muted-foreground">({t.count})</span>
+              )}
+            </button>
+          ))}
         </div>
+
+        {/* Tab content */}
+        {tab === 'open' && (
+          openPositions.length === 0 ? (
+            <div className="rounded-xl border border-border bg-card p-12 text-center text-sm text-muted-foreground">
+              No open positions yet.{' '}
+              <a href="/" className="text-foreground underline underline-offset-2">Browse markets</a> to place your first bet.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {openPositions.map((p: any) => <PositionCard key={p.id} position={p} />)}
+            </div>
+          )
+        )}
+
+        {tab === 'resolved' && (
+          resolvedPositions.length === 0 ? (
+            <div className="rounded-xl border border-border bg-card p-12 text-center text-sm text-muted-foreground">
+              No resolved positions yet.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {resolvedPositions.map((p: any) => <PositionCard key={p.id} position={p} />)}
+            </div>
+          )
+        )}
+
+        {tab === 'history' && (
+          <div className="rounded-xl border border-border bg-card overflow-hidden">
+            <TransactionHistory transactions={transactions} />
+          </div>
+        )}
       </main>
     </div>
   )

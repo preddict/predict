@@ -5,9 +5,10 @@ interface Props {
   invested: number
   currentValue: number
   resolvedPnl: number
+  winRate: number
 }
 
-export default function PortfolioStats({ balance, invested, currentValue, resolvedPnl }: Props) {
+export default function PortfolioStats({ balance, invested, currentValue, resolvedPnl, winRate }: Props) {
   const unrealizedPnl = currentValue - invested
   const totalPnl = unrealizedPnl + resolvedPnl
 
@@ -35,11 +36,11 @@ export default function PortfolioStats({ balance, invested, currentValue, resolv
       valueColor: totalPnl >= 0 ? 'text-green-600' : 'text-red-500',
     },
     {
-      label: 'Resolved Gains',
-      value: `${resolvedPnl >= 0 ? '+' : ''}$${resolvedPnl.toFixed(2)}`,
+      label: 'Win Rate',
+      value: winRate >= 0 ? `${winRate.toFixed(0)}%` : '—',
       icon: Trophy,
-      sub: 'Realized profit',
-      valueColor: resolvedPnl >= 0 ? 'text-green-600' : 'text-red-500',
+      sub: winRate >= 0 ? 'Resolved markets' : 'No resolved bets yet',
+      valueColor: winRate >= 50 ? 'text-green-600' : winRate >= 0 ? 'text-red-500' : undefined,
     },
   ]
 
