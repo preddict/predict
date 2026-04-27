@@ -14,29 +14,29 @@ export default function PortfolioStats({ balance, invested, currentValue, resolv
   const stats = [
     {
       label: 'Balance',
-      value: `R$${balance.toFixed(2)}`,
+      value: `$${balance.toFixed(2)}`,
       icon: Wallet,
       sub: 'Available to bet',
     },
     {
       label: 'Open Positions',
-      value: `R$${currentValue.toFixed(2)}`,
+      value: `$${currentValue.toFixed(2)}`,
       icon: BarChart2,
       sub: invested > 0
-        ? `${unrealizedPnl >= 0 ? '+' : ''}R$${unrealizedPnl.toFixed(2)} unrealized`
+        ? `${unrealizedPnl >= 0 ? '+' : ''}$${unrealizedPnl.toFixed(2)} unrealized`
         : 'No open positions',
       subColor: unrealizedPnl >= 0 ? 'text-green-600' : 'text-red-500',
     },
     {
       label: 'Total P&L',
-      value: `${totalPnl >= 0 ? '+' : ''}R$${totalPnl.toFixed(2)}`,
+      value: `${totalPnl >= 0 ? '+' : ''}$${totalPnl.toFixed(2)}`,
       icon: TrendingUp,
       sub: 'All time',
       valueColor: totalPnl >= 0 ? 'text-green-600' : 'text-red-500',
     },
     {
       label: 'Resolved Gains',
-      value: `${resolvedPnl >= 0 ? '+' : ''}R$${resolvedPnl.toFixed(2)}`,
+      value: `${resolvedPnl >= 0 ? '+' : ''}$${resolvedPnl.toFixed(2)}`,
       icon: Trophy,
       sub: 'Realized profit',
       valueColor: resolvedPnl >= 0 ? 'text-green-600' : 'text-red-500',

@@ -65,7 +65,7 @@ export default function TransactionHistory({ transactions }: Props) {
           </div>
           <div className="text-right">
             <p className={`text-sm font-semibold ${typeColor[tx.type] || 'text-foreground'}`}>
-              {typeSign[tx.type]}R${tx.amount_brl.toFixed(2)}
+              {typeSign[tx.type]}${tx.amount_brl.toFixed(2)}
             </p>
             <p className={`text-xs ${tx.status === 'completed' ? 'text-muted-foreground' : 'text-amber-600'}`}>
               {tx.status}

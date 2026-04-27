@@ -14,13 +14,13 @@ export async function POST(request: Request) {
     const { marketId, side, amountBrl } = await request.json()
 
     if (!marketId || !side || !amountBrl) {
-      return NextResponse.json({ error: 'Dados inválidos' }, { status: 400 })
+      return NextResponse.json({ error: 'Invalid data' }, { status: 400 })
     }
     if (!['yes', 'no'].includes(side)) {
-      return NextResponse.json({ error: 'Lado inválido' }, { status: 400 })
+      return NextResponse.json({ error: 'Invalid side' }, { status: 400 })
     }
     if (amountBrl < 1) {
-      return NextResponse.json({ error: 'Valor mínimo de R$ 1,00' }, { status: 400 })
+      return NextResponse.json({ error: 'Minimum bet is $1.00' }, { status: 400 })
     }
 
     // Busca mercado

@@ -77,14 +77,14 @@ export default function PositionCard({ position }: Props) {
         </div>
         <div>
           <p className="text-muted-foreground">Invested</p>
-          <p className="font-medium">R${invested.toFixed(2)}</p>
+          <p className="font-medium">${invested.toFixed(2)}</p>
         </div>
         <div>
           <p className="text-muted-foreground">
             {isResolved ? 'Final' : 'Current'} value
           </p>
           <p className={`font-semibold ${won ? 'text-green-600' : lost ? 'text-red-500' : pnl >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-            R${(isResolved ? (won ? shares : 0) : currentValue).toFixed(2)}
+            ${(isResolved ? (won ? shares : 0) : currentValue).toFixed(2)}
           </p>
         </div>
       </div>
@@ -95,7 +95,7 @@ export default function PositionCard({ position }: Props) {
           <div className="flex items-center gap-2">
             <span className="text-muted-foreground">{Math.round(currentPrice * 100)}¢</span>
             <span className={`font-semibold ${pnl >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-              {pnl >= 0 ? '+' : ''}R${pnl.toFixed(2)} ({pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(1)}%)
+              {pnl >= 0 ? '+' : ''}${pnl.toFixed(2)} ({pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(1)}%)
             </span>
           </div>
         </div>
