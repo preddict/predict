@@ -16,35 +16,39 @@ import ShareButton from '@/components/markets/ShareButton'
 import { MarketRealtimeProvider } from '@/components/markets/MarketRealtimeProvider'
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { id } = await params
-  const admin = await createAdminClient()
-  const { data: market } = await admin
-    .from('markets')
-    .select('title, description, image_url, category, id')
-    .eq('id', id)
-    .single()
+  try {
+    const { id } = await params
+    const admin = await createAdminClient()
+    const { data: market } = await admin
+      .from('markets')
+      .select('title, description, image_url, category, id')
+      .eq('id', id)
+      .single()
 
-  if (!market) return { title: 'Market not found' }
+    if (!market) return { title: 'PREDICT — Market' }
 
-  const title = cleanTitle(market.title)
-  const image = getMarketImage(market as any)
-  const desc = market.description || `Bet on "${title}" — will it happen?`
+    const title = cleanTitle(market.title)
+    const image = getMarketImage(market as any)
+    const desc = market.description || `Bet on "${title}" — will it happen?`
 
-  return {
-    title,
-    description: desc,
-    openGraph: {
+    return {
       title,
       description: desc,
-      images: [{ url: image, width: 600, height: 400, alt: title }],
-      type: 'website',
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title,
-      description: desc,
-      images: [image],
-    },
+      openGraph: {
+        title,
+        description: desc,
+        images: [{ url: image, width: 600, height: 400, alt: title }],
+        type: 'website',
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title,
+        description: desc,
+        images: [image],
+      },
+    }
+  } catch {
+    return { title: 'PREDICT — Market' }
   }
 }
 
