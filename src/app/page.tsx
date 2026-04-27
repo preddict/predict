@@ -1,39 +1,47 @@
-import { createClient } from '@/lib/supabase/server'
+import { Suspense } from 'react'
+import { createAdminClient } from '@/lib/supabase/server'
 import Header from '@/components/layout/Header'
 import MarketCard from '@/components/markets/MarketCard'
+import SearchBar from '@/components/markets/SearchBar'
 import type { Market } from '@/types'
 
-const categories = [
-  { value: '', label: 'All' },
-  { value: 'politics', label: 'Politics' },
-  { value: 'sports', label: 'Sports' },
-  { value: 'economy', label: 'Economy' },
-  { value: 'crypto', label: 'Crypto' },
-  { value: 'entertainment', label: 'Entertainment' },
-  { value: 'technology', label: 'Technology' },
-  { value: 'world', label: 'World' },
-]
+function formatVolume(v: number) {
+  if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`
+  if (v >= 1_000) return `$${(v / 1_000).toFixed(0)}k`
+  return `$${v.toFixed(0)}`
+}
 
 interface PageProps {
-  searchParams: Promise<{ category?: string; q?: string }>
+  searchParams: Promise<{ category?: string; q?: string; sort?: string }>
 }
 
 export default async function HomePage({ searchParams }: PageProps) {
-  const { category, q } = await searchParams
-  const supabase = await createClient()
+  const { category, q, sort = 'volume' } = await searchParams
+  const admin = await createAdminClient()
 
-  let query = supabase
-    .from('markets')
-    .select('*')
-    .eq('status', 'open')
-    .order('volume_brl', { ascending: false })
+  // Platform stats
+  const [{ data: markets }, { count: totalUsers }] = await Promise.all([
+    (() => {
+      let query = admin
+        .from('markets')
+        .select('*')
+        .eq('status', 'open')
 
-  if (category) query = query.eq('category', category)
-  if (q) query = query.ilike('title', `%${q}%`)
+      if (category) query = query.eq('category', category)
+      if (q) query = query.ilike('title', `%${q}%`)
 
-  const { data: markets } = await query.limit(50)
-  const featured = markets?.slice(0, 3) || []
-  const rest = markets?.slice(3) || []
+      if (sort === 'newest') query = query.order('created_at', { ascending: false })
+      else if (sort === 'closing') query = query.order('closes_at', { ascending: true })
+      else query = query.order('volume_brl', { ascending: false })
+
+      return query.limit(60)
+    })(),
+    admin.from('profiles').select('*', { count: 'exact', head: true }),
+  ])
+
+  const totalVolume = (markets || []).reduce((s, m) => s + (m.volume_brl || 0), 0)
+  const featured = (!q && !category && sort === 'volume') ? (markets || []).slice(0, 3) : []
+  const rest = featured.length > 0 ? (markets || []).slice(3) : (markets || [])
 
   return (
     <div className="min-h-screen bg-background">
@@ -50,39 +58,45 @@ export default async function HomePage({ searchParams }: PageProps) {
               Predict the future.<br />
               <span className="text-muted-foreground font-normal">Earn real money.</span>
             </h1>
-            <p className="text-muted-foreground text-sm max-w-md">
-              Bet on real-world events with other users. Prices reflect the collective market probability in real time.
+            <p className="text-muted-foreground text-sm max-w-md mb-8">
+              Bet on real-world events. Prices reflect collective probability in real time.
             </p>
+
+            {/* Stats */}
+            <div className="flex flex-wrap gap-6">
+              <div>
+                <p className="text-2xl font-bold text-foreground">{markets?.length || 0}</p>
+                <p className="text-xs text-muted-foreground">Open markets</p>
+              </div>
+              <div className="w-px bg-border" />
+              <div>
+                <p className="text-2xl font-bold text-foreground">{formatVolume(totalVolume)}</p>
+                <p className="text-xs text-muted-foreground">Total volume</p>
+              </div>
+              <div className="w-px bg-border" />
+              <div>
+                <p className="text-2xl font-bold text-foreground">{totalUsers || 0}</p>
+                <p className="text-xs text-muted-foreground">Traders</p>
+              </div>
+            </div>
           </div>
         )}
 
-        {/* Category filters */}
-        <div className="flex gap-2 overflow-x-auto pb-2 mb-6">
-          {categories.map(cat => {
-            const isActive = category === cat.value || (!category && !cat.value)
-            return (
-              <a key={cat.value} href={cat.value ? `/?category=${cat.value}` : '/'}>
-                <span className={`inline-flex items-center px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all border cursor-pointer ${
-                  isActive
-                    ? 'bg-foreground text-background border-foreground'
-                    : 'bg-card text-muted-foreground border-border hover:border-foreground hover:text-foreground'
-                }`}>
-                  {cat.label}
-                </span>
-              </a>
-            )
-          })}
-        </div>
+        {/* Search + Filters */}
+        <Suspense>
+          <SearchBar />
+        </Suspense>
 
-        {/* Search result */}
+        {/* Search result count */}
         {q && (
           <p className="text-sm text-muted-foreground mb-4">
-            {markets?.length || 0} result(s) for <span className="font-medium text-foreground">&quot;{q}&quot;</span>
+            {markets?.length || 0} result{markets?.length !== 1 ? 's' : ''} for{' '}
+            <span className="font-medium text-foreground">&quot;{q}&quot;</span>
           </p>
         )}
 
         {/* Featured */}
-        {featured.length > 0 && !q && (
+        {featured.length > 0 && (
           <section className="mb-8">
             <div className="flex items-center gap-3 mb-4">
               <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Featured</span>
@@ -90,41 +104,39 @@ export default async function HomePage({ searchParams }: PageProps) {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {featured.map(market => (
+                <MarketCard key={market.id} market={market as Market} featured />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Market grid */}
+        {rest.length > 0 && (
+          <section>
+            {!q && featured.length > 0 && (
+              <div className="flex items-center gap-3 mb-4">
+                <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">All markets</span>
+                <div className="flex-1 h-px bg-border" />
+                <span className="text-xs text-muted-foreground">{rest.length}</span>
+              </div>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {rest.map(market => (
                 <MarketCard key={market.id} market={market as Market} />
               ))}
             </div>
           </section>
         )}
 
-        {/* All markets */}
-        {(rest.length > 0 || q) && (
-          <section>
-            {!q && (
-              <div className="flex items-center gap-3 mb-4">
-                <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">All markets</span>
-                <div className="flex-1 h-px bg-border" />
-                <span className="text-xs text-muted-foreground">{rest.length} markets</span>
-              </div>
-            )}
-            {markets?.length === 0 ? (
-              <div className="text-center py-20">
-                <p className="text-base font-medium text-foreground">No markets found</p>
-                <p className="text-sm mt-1 text-muted-foreground">Try a different search or category</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {(q ? markets || [] : rest).map(market => (
-                  <MarketCard key={market.id} market={market as Market} />
-                ))}
-              </div>
-            )}
-          </section>
-        )}
-
-        {!markets?.length && !q && (
+        {/* Empty */}
+        {!markets?.length && (
           <div className="text-center py-20">
-            <p className="text-base font-medium text-foreground">No open markets yet</p>
-            <p className="text-sm mt-1 text-muted-foreground">Markets will appear here once created by the admin</p>
+            <p className="text-base font-medium text-foreground">
+              {q ? 'No markets found' : 'No open markets yet'}
+            </p>
+            <p className="text-sm mt-1 text-muted-foreground">
+              {q ? 'Try a different search or category' : 'Markets will appear here once created'}
+            </p>
           </div>
         )}
       </main>
