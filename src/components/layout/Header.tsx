@@ -92,14 +92,15 @@ export default function Header() {
                 <DropdownMenu>
                   <DropdownMenuTrigger className="outline-none">
                     <Avatar className="h-8 w-8 cursor-pointer ring-2 ring-border hover:ring-foreground transition-all">
-                      {avatarUrl && (
+                      {avatarUrl ? (
                         <div className="w-full h-full relative overflow-hidden rounded-full">
                           <Image src={avatarUrl} alt="Avatar" fill className="object-cover" unoptimized />
                         </div>
+                      ) : (
+                        <AvatarFallback className="bg-foreground text-background text-xs font-bold">
+                          {initials}
+                        </AvatarFallback>
                       )}
-                      <AvatarFallback className="bg-foreground text-background text-xs font-bold">
-                        {initials}
-                      </AvatarFallback>
                     </Avatar>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-52">
