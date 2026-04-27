@@ -13,6 +13,7 @@ import MarketComments from '@/components/markets/MarketComments'
 import { getMarketImage, cleanTitle } from '@/lib/marketUtils'
 import type { Metadata } from 'next'
 import ShareButton from '@/components/markets/ShareButton'
+import { MarketRealtimeProvider } from '@/components/markets/MarketRealtimeProvider'
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params
@@ -88,6 +89,7 @@ export default async function MarketPage({ params }: PageProps) {
   return (
     <div className="min-h-screen bg-background">
       <Header />
+      <MarketRealtimeProvider market={m}>
       <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
 
         {/* Breadcrumb + share */}
@@ -137,7 +139,7 @@ export default async function MarketPage({ params }: PageProps) {
             </div>
 
             {/* Probabilities — live realtime */}
-            <LiveProbability market={m} />
+            <LiveProbability />
 
             {/* Chart */}
             <div className="rounded-xl border border-border bg-card p-5">
@@ -164,12 +166,13 @@ export default async function MarketPage({ params }: PageProps) {
             <MarketComments marketId={m.id} />
           </div>
 
-          {/* Bet panel — fully client-side, manages own auth */}
+          {/* Bet panel */}
           <div className="lg:col-span-1">
-            <BetPanel market={m} />
+            <BetPanel />
           </div>
         </div>
       </main>
+      </MarketRealtimeProvider>
     </div>
   )
 }

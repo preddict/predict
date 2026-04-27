@@ -1,32 +1,12 @@
 'use client'
 
-import { useRealtimeMarket } from '@/hooks/useRealtimeMarket'
-import type { Market } from '@/types'
+import { useMarketLive } from './MarketRealtimeProvider'
 
-interface Props {
-  market: Market
-}
-
-export default function LiveProbability({ market }: Props) {
-  const live = useRealtimeMarket(market.id, {
-    yes_price: market.yes_price,
-    no_price: market.no_price,
-    q_yes: market.q_yes,
-    q_no: market.q_no,
-    liquidity_b: market.liquidity_b,
-    volume_brl: market.volume_brl,
-    status: market.status,
-    outcome: market.outcome,
-  })
+export default function LiveProbability() {
+  const live = useMarketLive()
 
   const yesPercent = Math.round(live.yes_price * 100)
   const noPercent = 100 - yesPercent
-
-  const flashClass = live.flash === 'up'
-    ? 'ring-2 ring-green-400'
-    : live.flash === 'down'
-    ? 'ring-2 ring-red-400'
-    : ''
 
   return (
     <div className="rounded-xl border border-border bg-card p-5">
@@ -40,12 +20,12 @@ export default function LiveProbability({ market }: Props) {
       </div>
 
       <div className="grid grid-cols-2 gap-4 mb-4">
-        <div className={`rounded-xl bg-green-50 border border-green-100 p-4 text-center transition-all duration-500 ${live.flash === 'up' ? flashClass : ''}`}>
+        <div className={`rounded-xl bg-green-50 border border-green-100 p-4 text-center transition-all duration-500 ${live.flash === 'up' ? 'ring-2 ring-green-400' : ''}`}>
           <div className="text-4xl font-bold text-green-600 mb-1 transition-all duration-300">{yesPercent}%</div>
           <div className="text-xs text-muted-foreground mb-1">Yes chance</div>
           <div className="text-xs text-green-600 font-medium">${live.yes_price.toFixed(3)} / share</div>
         </div>
-        <div className={`rounded-xl bg-red-50 border border-red-100 p-4 text-center transition-all duration-500 ${live.flash === 'down' ? flashClass : ''}`}>
+        <div className={`rounded-xl bg-red-50 border border-red-100 p-4 text-center transition-all duration-500 ${live.flash === 'down' ? 'ring-2 ring-red-400' : ''}`}>
           <div className="text-4xl font-bold text-red-500 mb-1 transition-all duration-300">{noPercent}%</div>
           <div className="text-xs text-muted-foreground mb-1">No chance</div>
           <div className="text-xs text-red-500 font-medium">${live.no_price.toFixed(3)} / share</div>
