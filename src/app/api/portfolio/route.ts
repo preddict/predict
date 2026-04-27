@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     if (!profile) return NextResponse.json({ profile: null, openPositions: [], resolvedPositions: [], transactions: [], invested: 0, currentValue: 0, resolvedPnl: 0 })
 
     const [{ data: positions }, { data: transactions }] = await Promise.all([
-      admin.from('positions').select(`id, market_id, side, shares, avg_price, market:markets(id, title, category, yes_price, no_price, status, outcome)`).eq('user_id', profile.id).gt('shares', 0),
+      admin.from('positions').select(`id, market_id, side, shares, avg_price, market:markets(id, title, category, yes_price, no_price, q_yes, q_no, liquidity_b, status, outcome)`).eq('user_id', profile.id).gt('shares', 0),
       admin.from('transactions').select(`id, type, amount_brl, status, created_at, market:markets(title)`).eq('user_id', profile.id).order('created_at', { ascending: false }).limit(100),
     ])
 

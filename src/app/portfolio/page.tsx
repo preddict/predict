@@ -22,6 +22,16 @@ function PortfolioContent() {
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<Tab>('open')
 
+  function fetchPortfolio() {
+    if (!authenticated) { setLoading(false); return }
+    getAccessToken().then(token =>
+      fetch('/api/portfolio', { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.json())
+        .then(d => { setData(d); setLoading(false) })
+        .catch(() => setLoading(false))
+    )
+  }
+
   useEffect(() => {
     if (!ready) return
     if (!authenticated) { setLoading(false); return }
@@ -118,7 +128,7 @@ function PortfolioContent() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {openPositions.map((p: any) => <PositionCard key={p.id} position={p} />)}
+              {openPositions.map((p: any) => <PositionCard key={p.id} position={p} onRefresh={fetchPortfolio} />)}
             </div>
           )
         )}
