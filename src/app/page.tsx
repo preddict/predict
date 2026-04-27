@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import Header from '@/components/layout/Header'
 import MarketCard from '@/components/markets/MarketCard'
 import SearchBar from '@/components/markets/SearchBar'
+import HeroSection from '@/components/markets/HeroSection'
 import type { Market } from '@/types'
 
 interface PageProps {
@@ -14,64 +15,40 @@ const catLabel = (cat: string) => ({
   entertainment: 'Entertainment', technology: 'Technology', world: 'World', weather: 'Weather',
 }[cat] || cat)
 
-function formatVolume(v: number) {
-  if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`
-  if (v >= 1_000) return `$${(v / 1_000).toFixed(0)}k`
-  return `$${v.toFixed(0)}`
-}
-
 export default async function HomePage({ searchParams }: PageProps) {
   const { category, q, sort = 'volume' } = await searchParams
   const admin = await createAdminClient()
 
-  const [{ data: allOpen }, { count: totalUsers }] = await Promise.all([
-    admin.from('markets').select('*').eq('status', 'open').order('volume_brl', { ascending: false }).limit(100),
-    admin.from('profiles').select('*', { count: 'exact', head: true }),
-  ])
-
-  const totalVolume = (allOpen || []).reduce((s, m) => s + (m.volume_brl || 0), 0)
+  const { data: allOpen } = await admin
+    .from('markets')
+    .select('*')
+    .eq('status', 'open')
+    .order('polymarket_volume', { ascending: false })
+    .limit(200)
 
   let filtered = allOpen || []
   if (category) filtered = filtered.filter(m => m.category === category)
   if (q) filtered = filtered.filter(m => m.title.toLowerCase().includes(q.toLowerCase()))
   if (sort === 'newest') filtered = [...filtered].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
   if (sort === 'closing') filtered = [...filtered].sort((a, b) => new Date(a.closes_at).getTime() - new Date(b.closes_at).getTime())
+  if (sort === 'volume') filtered = [...filtered].sort((a, b) => (b.volume_brl || 0) - (a.volume_brl || 0))
+
+  // Top markets for hero — highest polymarket_volume with images
+  const heroMarkets = (allOpen || [])
+    .filter(m => m.image_url)
+    .slice(0, 5)
+
+  const featured = heroMarkets[0] as Market | undefined
+  const trending = heroMarkets.slice(1, 5) as Market[]
 
   return (
     <div className="min-h-screen bg-background">
       <Header />
       <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
 
-        {/* Hero */}
-        {!q && !category && (
-          <div className="mb-8 rounded-2xl border border-border bg-card px-8 py-10">
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">
-              Prediction Markets
-            </p>
-            <h1 className="text-4xl font-bold text-foreground mb-3 leading-tight">
-              Predict the future.<br />
-              <span className="text-muted-foreground font-normal">Earn real money.</span>
-            </h1>
-            <p className="text-muted-foreground text-sm max-w-md mb-8">
-              Bet on real-world events. Prices reflect collective probability in real time.
-            </p>
-            <div className="flex flex-wrap gap-6">
-              <div>
-                <p className="text-2xl font-bold text-foreground">{allOpen?.length || 0}</p>
-                <p className="text-xs text-muted-foreground">Open markets</p>
-              </div>
-              <div className="w-px bg-border" />
-              <div>
-                <p className="text-2xl font-bold text-foreground">{formatVolume(totalVolume)}</p>
-                <p className="text-xs text-muted-foreground">Total volume</p>
-              </div>
-              <div className="w-px bg-border" />
-              <div>
-                <p className="text-2xl font-bold text-foreground">{totalUsers || 0}</p>
-                <p className="text-xs text-muted-foreground">Traders</p>
-              </div>
-            </div>
-          </div>
+        {/* Hero — only on home, not when searching/filtering */}
+        {!q && !category && featured && (
+          <HeroSection featured={featured} trending={trending} />
         )}
 
         <Suspense>

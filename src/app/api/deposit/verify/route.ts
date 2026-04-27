@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PrivyClient } from '@privy-io/server-auth'
 import { createAdminClient } from '@/lib/supabase/server'
+import { sendDepositConfirmedEmail } from '@/lib/email'
 
 const privy = new PrivyClient(
   process.env.NEXT_PUBLIC_PRIVY_APP_ID!,
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
 
     const { data: profile } = await admin
       .from('profiles')
-      .select('id, balance_brl, wallet_address, usdc_snapshot')
+      .select('id, name, email, balance_brl, wallet_address, usdc_snapshot')
       .eq('privy_id', claims.userId)
       .single()
 
@@ -61,6 +62,11 @@ export async function POST(req: NextRequest) {
     // Credit balance and update snapshot
     await admin.rpc('add_balance', { p_user_id: profile.id, p_amount: credited })
     await admin.from('profiles').update({ usdc_snapshot: onChainBalance }).eq('id', profile.id)
+    // Email confirmation — fire and forget
+    if (profile.email) {
+      sendDepositConfirmedEmail({ to: profile.email, name: profile.name || 'Trader', amount: credited })
+    }
+
     await admin.from('transactions').insert({
       user_id: profile.id,
       type: 'deposit',
