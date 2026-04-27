@@ -9,6 +9,7 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Search, LogOut, User, LayoutDashboard, Wallet, TrendingUp } from 'lucide-react'
+import NotificationBell from './NotificationBell'
 
 const navLinks = [
   { href: '/', label: 'All' },
@@ -76,6 +77,7 @@ export default function Header() {
               <div className="h-8 w-20 bg-muted animate-pulse rounded-lg" />
             ) : authenticated ? (
               <>
+                <NotificationBell />
                 <Link href="/portfolio">
                   <button className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-muted hover:bg-secondary transition-colors text-sm font-medium">
                     <Wallet className="h-3.5 w-3.5 text-muted-foreground" />
