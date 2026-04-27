@@ -1,11 +1,10 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 
 export default function DepositToast({ status }: { status?: string }) {
-  const router = useRouter()
   const searchParams = useSearchParams()
 
   useEffect(() => {
@@ -15,13 +14,15 @@ export default function DepositToast({ status }: { status?: string }) {
         ? `$${parseFloat(amount).toFixed(2)} added to your balance!`
         : 'Deposit successful! Your balance has been updated.'
       toast.success(msg)
-      // Small delay to let webhook process before page reload
-      setTimeout(() => router.replace('/portfolio'), 1500)
+      // Wait 3s for webhook to process, then hard reload to get fresh balance
+      setTimeout(() => {
+        window.location.href = '/portfolio'
+      }, 3000)
     } else if (status === 'cancelled') {
       toast.info('Payment cancelled.')
-      router.replace('/portfolio')
+      window.location.href = '/portfolio'
     }
-  }, [status, router, searchParams])
+  }, [status, searchParams])
 
   return null
 }
