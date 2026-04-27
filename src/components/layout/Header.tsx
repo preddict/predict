@@ -20,6 +20,7 @@ const navLinks = [
   { href: '/?category=entertainment', label: 'Entertainment' },
   { href: '/?category=world', label: 'World' },
   { href: '/leaderboard', label: '🏆 Leaderboard' },
+  { href: '/how-it-works', label: 'How it works' },
 ]
 
 export default function Header() {

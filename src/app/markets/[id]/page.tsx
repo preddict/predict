@@ -12,6 +12,7 @@ import Image from 'next/image'
 import MarketComments from '@/components/markets/MarketComments'
 import { getMarketImage, cleanTitle } from '@/lib/marketUtils'
 import type { Metadata } from 'next'
+import ShareButton from '@/components/markets/ShareButton'
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params
@@ -89,11 +90,14 @@ export default async function MarketPage({ params }: PageProps) {
       <Header />
       <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
 
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-6">
-          <a href="/" className="hover:text-foreground transition-colors">Home</a>
-          <span>/</span>
-          <span>{categoryLabels[m.category] || m.category}</span>
+        {/* Breadcrumb + share */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <a href="/" className="hover:text-foreground transition-colors">Home</a>
+            <span>/</span>
+            <span>{categoryLabels[m.category] || m.category}</span>
+          </div>
+          <ShareButton title={marketTitle} />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

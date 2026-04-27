@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { Toaster } from '@/components/ui/sonner'
 import PrivyProviderWrapper from '@/components/providers/PrivyProvider'
+import OnboardingModal from '@/components/layout/OnboardingModal'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -32,6 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={`${inter.className} bg-background text-foreground antialiased`}>
         <PrivyProviderWrapper>
           {children}
+          <OnboardingModal />
           <Toaster richColors position="top-right" />
         </PrivyProviderWrapper>
       </body>
