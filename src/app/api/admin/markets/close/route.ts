@@ -1,20 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { PrivyClient } from '@privy-io/server-auth'
+import { createAdminClient } from '@/lib/supabase/server'
+
+const privy = new PrivyClient(
+  process.env.NEXT_PUBLIC_PRIVY_APP_ID!,
+  process.env.PRIVY_APP_SECRET!
+)
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const token = req.headers.get('authorization')?.replace('Bearer ', '')
+  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single()
-  if (!profile?.is_admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  try {
+    const claims = await privy.verifyAuthToken(token)
+    const admin = await createAdminClient()
 
-  const { marketId } = await req.json()
-  if (!marketId) return NextResponse.json({ error: 'Missing marketId' }, { status: 400 })
+    const { data: profile } = await admin
+      .from('profiles').select('is_admin').eq('privy_id', claims.userId).single()
+    if (!profile?.is_admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const admin = await createAdminClient()
-  const { error } = await admin.from('markets').update({ status: 'closed' }).eq('id', marketId)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    const { marketId } = await req.json()
+    if (!marketId) return NextResponse.json({ error: 'Missing marketId' }, { status: 400 })
 
-  return NextResponse.json({ success: true })
+    const { error } = await admin.from('markets').update({ status: 'closed' }).eq('id', marketId)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    return NextResponse.json({ success: true })
+  } catch {
+    return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+  }
 }

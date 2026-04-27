@@ -9,6 +9,7 @@ import PortfolioStats from '@/components/portfolio/PortfolioStats'
 import PositionCard from '@/components/portfolio/PositionCard'
 import TransactionHistory from '@/components/portfolio/TransactionHistory'
 import DepositButton from '@/components/portfolio/DepositButton'
+import WithdrawButton from '@/components/portfolio/WithdrawButton'
 import DepositToast from '@/components/portfolio/DepositToast'
 
 type Tab = 'open' | 'resolved' | 'history'
@@ -88,7 +89,10 @@ function PortfolioContent() {
             <h1 className="text-2xl font-bold text-foreground">Portfolio</h1>
             <p className="text-sm text-muted-foreground mt-1">Welcome back</p>
           </div>
-          <DepositButton />
+          <div className="flex items-center gap-2">
+            <WithdrawButton balance={profile?.balance_brl || 0} onSuccess={fetchPortfolio} />
+            <DepositButton />
+          </div>
         </div>
 
         <PortfolioStats

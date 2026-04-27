@@ -1,7 +1,2 @@
-export const dynamic = 'force-dynamic'
-
-import RegisterForm from './RegisterForm'
-
-export default function RegisterPage() {
-  return <RegisterForm />
-}
+import { redirect } from 'next/navigation'
+export default function RegisterPage() { redirect('/') }

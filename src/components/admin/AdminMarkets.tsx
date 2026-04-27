@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { usePrivy } from '@privy-io/react-auth'
 import { toast } from 'sonner'
 import { Plus, RefreshCw, CheckCircle, XCircle, Search, ExternalLink } from 'lucide-react'
 
@@ -14,7 +14,7 @@ interface Market {
   yes_price: number
   no_price: number
   volume_brl: number
-  polymarket_volume: number
+  polymarket_volume?: number
   closes_at: string
   polymarket_id: string | null
   created_at: string
@@ -22,19 +22,18 @@ interface Market {
 
 interface Props {
   markets: Market[]
+  onRefresh: () => void
 }
 
 const categories = ['politics', 'sports', 'economy', 'crypto', 'entertainment', 'technology', 'world', 'weather']
 
-export default function AdminMarkets({ markets }: Props) {
-  const router = useRouter()
+export default function AdminMarkets({ markets, onRefresh }: Props) {
+  const { getAccessToken } = usePrivy()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [resolvingId, setResolvingId] = useState<string | null>(null)
-
-  // Create market form state
   const [form, setForm] = useState({
     title: '', description: '', category: 'politics',
     closes_at: '', liquidity_b: '200',
@@ -46,6 +45,11 @@ export default function AdminMarkets({ markets }: Props) {
     return matchSearch && matchStatus
   })
 
+  async function authHeader() {
+    const token = await getAccessToken()
+    return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+  }
+
   async function handleSync() {
     setSyncing(true)
     try {
@@ -53,7 +57,7 @@ export default function AdminMarkets({ markets }: Props) {
       const data = await res.json()
       if (data.success) {
         toast.success(`Sync done! Imported: ${data.imported}, Updated: ${data.updated}, Resolved: ${data.resolved}`)
-        router.refresh()
+        onRefresh()
       } else {
         toast.error(data.error || 'Sync failed')
       }
@@ -68,7 +72,7 @@ export default function AdminMarkets({ markets }: Props) {
     e.preventDefault()
     const res = await fetch('/api/admin/markets', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await authHeader(),
       body: JSON.stringify(form),
     })
     const data = await res.json()
@@ -76,7 +80,7 @@ export default function AdminMarkets({ markets }: Props) {
     toast.success('Market created!')
     setShowCreateForm(false)
     setForm({ title: '', description: '', category: 'politics', closes_at: '', liquidity_b: '200' })
-    router.refresh()
+    onRefresh()
   }
 
   async function handleResolve(marketId: string, outcome: 'yes' | 'no') {
@@ -85,13 +89,13 @@ export default function AdminMarkets({ markets }: Props) {
     try {
       const res = await fetch('/api/admin/markets/resolve', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await authHeader(),
         body: JSON.stringify({ marketId, outcome }),
       })
       const data = await res.json()
       if (!res.ok) { toast.error(data.error); return }
       toast.success(`Market resolved as ${outcome.toUpperCase()}!`)
-      router.refresh()
+      onRefresh()
     } catch {
       toast.error('Failed to resolve')
     } finally {
@@ -102,13 +106,13 @@ export default function AdminMarkets({ markets }: Props) {
   async function handleClose(marketId: string) {
     const res = await fetch('/api/admin/markets/close', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await authHeader(),
       body: JSON.stringify({ marketId }),
     })
     const data = await res.json()
     if (!res.ok) { toast.error(data.error); return }
     toast.success('Market closed')
-    router.refresh()
+    onRefresh()
   }
 
   function formatVol(v: number) {
@@ -119,7 +123,6 @@ export default function AdminMarkets({ markets }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-48">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -131,7 +134,6 @@ export default function AdminMarkets({ markets }: Props) {
             className="w-full pl-8 pr-4 py-2 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:border-foreground"
           />
         </div>
-
         <select
           value={statusFilter}
           onChange={e => setStatusFilter(e.target.value)}
@@ -142,7 +144,6 @@ export default function AdminMarkets({ markets }: Props) {
           <option value="closed">Closed</option>
           <option value="resolved">Resolved</option>
         </select>
-
         <button
           onClick={handleSync}
           disabled={syncing}
@@ -151,7 +152,6 @@ export default function AdminMarkets({ markets }: Props) {
           <RefreshCw className={`h-3.5 w-3.5 ${syncing ? 'animate-spin' : ''}`} />
           {syncing ? 'Syncing...' : 'Sync Polymarket'}
         </button>
-
         <button
           onClick={() => setShowCreateForm(!showCreateForm)}
           className="flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-foreground text-background rounded-lg hover:opacity-90 transition-opacity"
@@ -161,7 +161,6 @@ export default function AdminMarkets({ markets }: Props) {
         </button>
       </div>
 
-      {/* Create form */}
       {showCreateForm && (
         <div className="rounded-xl border border-border bg-card p-6">
           <h3 className="text-sm font-semibold mb-4">Create new market</h3>
@@ -216,12 +215,10 @@ export default function AdminMarkets({ markets }: Props) {
         </div>
       )}
 
-      {/* Markets table */}
       <div className="rounded-xl border border-border bg-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+        <div className="px-4 py-3 border-b border-border">
           <span className="text-sm font-semibold">{filtered.length} markets</span>
         </div>
-
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -256,7 +253,7 @@ export default function AdminMarkets({ markets }: Props) {
                   <td className="px-4 py-3">
                     <div>
                       <p className="text-xs font-medium">{formatVol(m.volume_brl)}</p>
-                      {m.polymarket_volume > 0 && (
+                      {m.polymarket_volume && m.polymarket_volume > 0 && (
                         <p className="text-xs text-muted-foreground">PM: {formatVol(m.polymarket_volume)}</p>
                       )}
                     </div>
