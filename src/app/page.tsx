@@ -52,7 +52,7 @@ export default async function HomePage({ searchParams }: PageProps) {
 
         {/* Hero */}
         {!q && !category && (
-          <div className="mb-8 rounded-2xl border border-border bg-card px-8 py-10">
+          <div className="mb-8 rounded-2xl border border-border bg-card px-8 pt-10 pb-0 overflow-hidden">
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">
               Prediction Markets
             </p>
