@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
+import { useAuthedFetch } from '@/hooks/useAuthedFetch'
 import { useRouter } from 'next/navigation'
 import { calculateBuyCost, sharesForAmount, calculateSellReturn, calculatePotentialProfit, calculateFee } from '@/lib/lmsr'
 import { useMarketLive } from './MarketRealtimeProvider'
@@ -12,7 +13,8 @@ import type { Position, BetSide } from '@/types'
 type Tab = 'buy' | 'sell'
 
 export default function BetPanel() {
-  const { ready, authenticated, getAccessToken, login } = usePrivy()
+  const { ready, authenticated, login } = usePrivy()
+  const authedFetch = useAuthedFetch()
   const router = useRouter()
   const market = useMarketLive()
 
@@ -29,10 +31,9 @@ export default function BetPanel() {
     if (!authenticated) return
     setFetchingUser(true)
     try {
-      const token = await getAccessToken()
       const [meRes, portRes] = await Promise.all([
-        fetch('/api/me', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/portfolio', { headers: { Authorization: `Bearer ${token}` } }),
+        authedFetch('/api/me'),
+        authedFetch('/api/portfolio'),
       ])
       const me = await meRes.json()
       const port = await portRes.json()
@@ -44,7 +45,7 @@ export default function BetPanel() {
     } finally {
       setFetchingUser(false)
     }
-  }, [authenticated, getAccessToken, market.id])
+  }, [authenticated, authedFetch, market.id])
 
   useEffect(() => { fetchUserData() }, [fetchUserData])
 
@@ -78,10 +79,9 @@ export default function BetPanel() {
 
     setLoading(true)
     try {
-      const token = await getAccessToken()
-      const res = await fetch('/api/bets', {
+      const res = await authedFetch('/api/bets', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ marketId: market.id, side, amountBrl: amountNum }),
       })
       const data = await res.json()
@@ -104,10 +104,9 @@ export default function BetPanel() {
 
     setLoading(true)
     try {
-      const token = await getAccessToken()
-      const res = await fetch('/api/sell', {
+      const res = await authedFetch('/api/sell', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ marketId: market.id, side, shares: sellSharesNum }),
       })
       const data = await res.json()

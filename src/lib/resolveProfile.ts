@@ -15,14 +15,13 @@ function extractEmail(privyUser: any): string | null {
 async function getPrivyUserWithRetry(privyUserId: string): Promise<any | null> {
   for (let i = 0; i < 3; i++) {
     try { return await privy.getUser(privyUserId) } catch {
-      if (i < 2) await new Promise(r => setTimeout(r, 600 * (i + 1)))
+      if (i < 2) await new Promise(r => setTimeout(r, 500 * (i + 1)))
     }
   }
   return null
 }
 
 async function findByEmail(admin: any, email: string) {
-  // Case-insensitive email lookup
   const { data } = await admin
     .from('profiles').select('*')
     .ilike('email', email)
@@ -30,61 +29,21 @@ async function findByEmail(admin: any, email: string) {
   return data
 }
 
-export async function resolveProfile(admin: any, privyUserId: string) {
-  // 1. Fast path: exact privy_id match
-  const { data: byPrivyId } = await admin
-    .from('profiles').select('*').eq('privy_id', privyUserId).single()
-  if (byPrivyId) return byPrivyId
+async function linkPrivyIdToProfile(admin: any, profile: any, privyUserId: string, walletAddress?: string | null) {
+  const updatedIds = Array.from(new Set([...(profile.privy_ids || []), privyUserId]))
+  await admin.from('profiles')
+    .update({
+      privy_id: privyUserId,
+      privy_ids: updatedIds,
+      ...(walletAddress ? { wallet_address: walletAddress } : {}),
+    })
+    .eq('id', profile.id)
+  return { ...profile, privy_id: privyUserId, privy_ids: updatedIds }
+}
 
-  // 2. Secondary: privy_ids array (other linked devices)
-  try {
-    const { data: byArray } = await admin
-      .from('profiles').select('*')
-      .contains('privy_ids', [privyUserId])
-      .single()
-    if (byArray) {
-      if (!byArray.privy_id) {
-        await admin.from('profiles').update({ privy_id: privyUserId }).eq('id', byArray.id)
-      }
-      return byArray
-    }
-  } catch { /* privy_ids column may not exist yet */ }
-
-  // 3. Fetch Privy user info to enable email lookup
-  const privyUser = await getPrivyUserWithRetry(privyUserId)
-
-  let email: string | null = null
-  let walletAddress: string | null = null
-  let name = 'User'
-
-  if (privyUser) {
-    email = extractEmail(privyUser)
-    const embeddedWallet = privyUser.linkedAccounts?.find(
-      (a: any) => a.type === 'wallet' && a.walletClientType === 'privy'
-    ) as any
-    walletAddress = embeddedWallet?.address || null
-    const googleAccount = privyUser.linkedAccounts?.find((a: any) => a.type === 'google_oauth') as any
-    name = googleAccount?.name || (email ? email.split('@')[0] : 'User')
-  }
-
-  // 4. Email fallback: same person, different login method or device
-  if (email) {
-    const byEmail = await findByEmail(admin, email)
-    if (byEmail) {
-      const updatedIds = Array.from(new Set([...(byEmail.privy_ids || []), privyUserId]))
-      await admin.from('profiles')
-        .update({
-          privy_ids: updatedIds,
-          privy_id: byEmail.privy_id || privyUserId,
-          wallet_address: walletAddress || byEmail.wallet_address,
-        })
-        .eq('id', byEmail.id)
-      return { ...byEmail, privy_ids: updatedIds }
-    }
-  }
-
-  // 5. Create new profile — check INSERT errors explicitly
-  const { data: newProfile, error: insertError } = await admin.from('profiles').insert({
+async function createProfile(admin: any, privyUserId: string, email: string | null, name: string, walletAddress: string | null) {
+  // Try with privy_ids column
+  const { data: p1, error: e1 } = await admin.from('profiles').insert({
     privy_id: privyUserId,
     privy_ids: [privyUserId],
     email,
@@ -94,32 +53,19 @@ export async function resolveProfile(admin: any, privyUserId: string) {
     wallet_address: walletAddress,
   }).select().single()
 
-  if (newProfile) return newProfile
+  if (p1) return p1
 
-  // INSERT failed (e.g. unique constraint) — profile already exists, find it
-  if (insertError) {
-    console.error('[resolveProfile] INSERT failed:', insertError.message, 'privy_id:', privyUserId, 'email:', email)
+  // Maybe privy_ids column doesn't exist — try without it
+  if (e1) {
+    console.error('[resolveProfile] INSERT error:', e1.message, '| privy_id:', privyUserId, '| email:', email)
 
-    // Try email again (INSERT may have failed due to duplicate email)
-    if (email) {
-      const byEmailRetry = await findByEmail(admin, email)
-      if (byEmailRetry) {
-        // Link this privy_id now
-        const updatedIds = Array.from(new Set([...(byEmailRetry.privy_ids || []), privyUserId]))
-        await admin.from('profiles')
-          .update({ privy_ids: updatedIds, privy_id: byEmailRetry.privy_id || privyUserId })
-          .eq('id', byEmailRetry.id)
-        return { ...byEmailRetry, privy_ids: updatedIds }
-      }
-    }
-
-    // Try privy_id again (race condition — maybe just inserted)
-    const { data: byPrivyIdRetry } = await admin
+    // Check if the profile was already created by a concurrent request
+    const { data: existing } = await admin
       .from('profiles').select('*').eq('privy_id', privyUserId).single()
-    if (byPrivyIdRetry) return byPrivyIdRetry
+    if (existing) return existing
 
-    // Last resort: try INSERT without privy_ids column
-    const { data: fallback } = await admin.from('profiles').insert({
+    // Try minimal insert
+    const { data: p2 } = await admin.from('profiles').insert({
       privy_id: privyUserId,
       email,
       name,
@@ -127,9 +73,64 @@ export async function resolveProfile(admin: any, privyUserId: string) {
       is_admin: false,
       wallet_address: walletAddress,
     }).select().single()
-    if (fallback) return fallback
+    if (p2) return p2
   }
 
-  console.error('[resolveProfile] All lookups exhausted for privy_id:', privyUserId)
   return null
+}
+
+// emailHint: passed directly from client via x-user-email header — avoids server-side Privy API call
+export async function resolveProfile(admin: any, privyUserId: string, emailHint?: string | null) {
+  // 1. Fast path: exact privy_id match
+  const { data: byPrivyId } = await admin
+    .from('profiles').select('*').eq('privy_id', privyUserId).single()
+  if (byPrivyId) return byPrivyId
+
+  // 2. Secondary: privy_ids array
+  try {
+    const { data: byArray } = await admin
+      .from('profiles').select('*')
+      .contains('privy_ids', [privyUserId])
+      .single()
+    if (byArray) return byArray
+  } catch { /* privy_ids column may not exist */ }
+
+  // 3. Email lookup — use client-provided hint first (fast, no API call needed)
+  const emailToTry = emailHint?.toLowerCase().trim() || null
+  if (emailToTry && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailToTry)) {
+    const byEmail = await findByEmail(admin, emailToTry)
+    if (byEmail) {
+      return await linkPrivyIdToProfile(admin, byEmail, privyUserId)
+    }
+  }
+
+  // 4. Fallback: try Privy API to get email (may fail — that's OK)
+  let email = emailToTry
+  let walletAddress: string | null = null
+  let name = emailToTry ? emailToTry.split('@')[0] : 'User'
+
+  const privyUser = await getPrivyUserWithRetry(privyUserId)
+  if (privyUser) {
+    const privyEmail = extractEmail(privyUser)
+    if (privyEmail) email = privyEmail
+
+    const embedded = privyUser.linkedAccounts?.find(
+      (a: any) => a.type === 'wallet' && a.walletClientType === 'privy'
+    ) as any
+    walletAddress = embedded?.address || null
+
+    const google = privyUser.linkedAccounts?.find((a: any) => a.type === 'google_oauth') as any
+    name = google?.name || (email ? email.split('@')[0] : 'User')
+
+    // Try email from Privy API if different from hint
+    if (email && email !== emailToTry) {
+      const byPrivyEmail = await findByEmail(admin, email)
+      if (byPrivyEmail) {
+        return await linkPrivyIdToProfile(admin, byPrivyEmail, privyUserId, walletAddress)
+      }
+    }
+  }
+
+  // 5. Create new profile
+  return await createProfile(admin, privyUserId, email, name, walletAddress)
 }

@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     const claims = await privy.verifyAuthToken(token)
     const admin = await createAdminClient()
 
-    const profile = await resolveProfile(admin, claims.userId)
+    const profile = await resolveProfile(admin, claims.userId, req.headers.get('x-user-email'))
 
     if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
     if (!profile.wallet_address) return NextResponse.json({ error: 'No wallet found' }, { status: 400 })

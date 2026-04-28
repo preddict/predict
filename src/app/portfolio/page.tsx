@@ -2,6 +2,7 @@
 
 import { usePrivy } from '@privy-io/react-auth'
 import { useEffect, useState } from 'react'
+import { useAuthedFetch } from '@/hooks/useAuthedFetch'
 import { Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Header from '@/components/layout/Header'
@@ -17,7 +18,8 @@ import EditableName from '@/components/portfolio/EditableName'
 type Tab = 'open' | 'resolved' | 'history'
 
 function PortfolioContent() {
-  const { ready, authenticated, getAccessToken, user } = usePrivy()
+  const { ready, authenticated, user } = usePrivy()
+  const authedFetch = useAuthedFetch()
   const searchParams = useSearchParams()
   const deposit = searchParams.get('deposit') || undefined
 
@@ -29,46 +31,25 @@ function PortfolioContent() {
 
   function fetchPortfolio() {
     if (!authenticated) { setLoading(false); return }
-    getAccessToken().then(token =>
-      fetch('/api/portfolio', { headers: { Authorization: `Bearer ${token}` } })
-        .then(r => r.json())
-        .then(d => { setData(d); setLoading(false) })
-        .catch(() => setLoading(false))
-    )
+    authedFetch('/api/portfolio')
+      .then(r => r.json())
+      .then(d => { setData(d); setLoading(false) })
+      .catch(() => setLoading(false))
   }
 
   useEffect(() => {
     if (!ready) return
     if (!authenticated) { setLoading(false); return }
-
-    const email =
-      (user as any)?.email?.address ||
-      (user as any)?.google?.email ||
-      (user as any)?.linkedAccounts?.find((a: any) => a.type === 'google_oauth')?.email ||
-      (user as any)?.linkedAccounts?.find((a: any) => a.type === 'email')?.address ||
-      null
-
-    getAccessToken().then(async token => {
-      // Proactively link this device's privy_id to the profile by email
-      if (email) {
-        await fetch('/api/link-account', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email }),
-        }).catch(() => {})
-      }
-
-      fetch('/api/portfolio', { headers: { Authorization: `Bearer ${token}` } })
-        .then(r => r.json())
-        .then(d => {
-          setData(d)
-          setLoading(false)
-          if (d.profile?.avatar_url) setAvatarUrl(d.profile.avatar_url)
-          if (d.profile?.name) setDisplayName(d.profile.name)
-        })
-        .catch(() => setLoading(false))
-    })
-  }, [ready, authenticated, getAccessToken, user])
+    authedFetch('/api/portfolio')
+      .then(r => r.json())
+      .then(d => {
+        setData(d)
+        setLoading(false)
+        if (d.profile?.avatar_url) setAvatarUrl(d.profile.avatar_url)
+        if (d.profile?.name) setDisplayName(d.profile.name)
+      })
+      .catch(() => setLoading(false))
+  }, [ready, authenticated, user, authedFetch])
 
   if (!ready || loading) {
     return (

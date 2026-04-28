@@ -31,7 +31,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const claims = await privy.verifyAuthToken(token)
     const admin = await createAdminClient()
 
-    const profile = await resolveProfile(admin, claims.userId)
+    const profile = await resolveProfile(admin, claims.userId, req.headers.get('x-user-email'))
     if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
 
     const { content } = await req.json()

@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
     const claims = await privy.verifyAuthToken(token)
     const admin = await createAdminClient()
 
-    const profile = await resolveProfile(admin, claims.userId)
+    const profile = await resolveProfile(admin, claims.userId, req.headers.get('x-user-email'))
 
     if (!profile) return NextResponse.json({ profile: null, openPositions: [], resolvedPositions: [], transactions: [], invested: 0, currentValue: 0, resolvedPnl: 0 })
 

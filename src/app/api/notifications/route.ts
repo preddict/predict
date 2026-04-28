@@ -8,10 +8,10 @@ const privy = new PrivyClient(
   process.env.PRIVY_APP_SECRET!
 )
 
-async function getProfile(token: string) {
+async function getProfile(token: string, emailHint?: string | null) {
   const claims = await privy.verifyAuthToken(token)
   const admin = await createAdminClient()
-  return resolveProfile(admin, claims.userId)
+  return resolveProfile(admin, claims.userId, emailHint)
 }
 
 export async function GET(req: NextRequest) {
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
-    const profile = await getProfile(token)
+    const profile = await getProfile(token, req.headers.get('x-user-email'))
     if (!profile) return NextResponse.json({ notifications: [] })
 
     const admin = await createAdminClient()
@@ -41,7 +41,7 @@ export async function PATCH(req: NextRequest) {
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
-    const profile = await getProfile(token)
+    const profile = await getProfile(token, req.headers.get('x-user-email'))
     if (!profile) return NextResponse.json({ success: true })
 
     const admin = await createAdminClient()

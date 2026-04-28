@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePrivy } from '@privy-io/react-auth'
 import { useState, useEffect } from 'react'
+import { useAuthedFetch } from '@/hooks/useAuthedFetch'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -25,7 +26,8 @@ const navLinks = [
 ]
 
 export default function Header() {
-  const { ready, authenticated, user, login, logout, getAccessToken } = usePrivy()
+  const { ready, authenticated, user, login, logout } = usePrivy()
+  const authedFetch = useAuthedFetch()
   const [searchQuery, setSearchQuery] = useState('')
   const [balance, setBalance] = useState<number | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
@@ -33,33 +35,14 @@ export default function Header() {
 
   useEffect(() => {
     if (!authenticated || !user) return
-
-    const email =
-      (user as any)?.email?.address ||
-      (user as any)?.google?.email ||
-      (user as any)?.linkedAccounts?.find((a: any) => a.type === 'google_oauth')?.email ||
-      (user as any)?.linkedAccounts?.find((a: any) => a.type === 'email')?.address ||
-      null
-
-    getAccessToken().then(async token => {
-      // Link this device to the existing account by email before any other call
-      if (email) {
-        await fetch('/api/link-account', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email }),
-        }).catch(() => {})
-      }
-
-      fetch('/api/me', { headers: { Authorization: `Bearer ${token}` } })
-        .then(r => r.json())
-        .then(d => {
-          if (d.balance !== undefined) setBalance(d.balance)
-          if (d.is_admin) setIsAdmin(true)
-          if (d.avatar_url) setAvatarUrl(d.avatar_url)
-        }).catch(() => {})
-    })
-  }, [authenticated, user, getAccessToken])
+    authedFetch('/api/me')
+      .then(r => r.json())
+      .then(d => {
+        if (d.balance !== undefined) setBalance(d.balance)
+        if (d.is_admin) setIsAdmin(true)
+        if (d.avatar_url) setAvatarUrl(d.avatar_url)
+      }).catch(() => {})
+  }, [authenticated, user, authedFetch])
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault()
