@@ -33,7 +33,24 @@ export default function Header() {
 
   useEffect(() => {
     if (!authenticated || !user) return
-    getAccessToken().then(token => {
+
+    const email =
+      (user as any)?.email?.address ||
+      (user as any)?.google?.email ||
+      (user as any)?.linkedAccounts?.find((a: any) => a.type === 'google_oauth')?.email ||
+      (user as any)?.linkedAccounts?.find((a: any) => a.type === 'email')?.address ||
+      null
+
+    getAccessToken().then(async token => {
+      // Link this device to the existing account by email before any other call
+      if (email) {
+        await fetch('/api/link-account', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        }).catch(() => {})
+      }
+
       fetch('/api/me', { headers: { Authorization: `Bearer ${token}` } })
         .then(r => r.json())
         .then(d => {

@@ -41,7 +41,23 @@ function PortfolioContent() {
     if (!ready) return
     if (!authenticated) { setLoading(false); return }
 
-    getAccessToken().then(token =>
+    const email =
+      (user as any)?.email?.address ||
+      (user as any)?.google?.email ||
+      (user as any)?.linkedAccounts?.find((a: any) => a.type === 'google_oauth')?.email ||
+      (user as any)?.linkedAccounts?.find((a: any) => a.type === 'email')?.address ||
+      null
+
+    getAccessToken().then(async token => {
+      // Proactively link this device's privy_id to the profile by email
+      if (email) {
+        await fetch('/api/link-account', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        }).catch(() => {})
+      }
+
       fetch('/api/portfolio', { headers: { Authorization: `Bearer ${token}` } })
         .then(r => r.json())
         .then(d => {
@@ -51,8 +67,8 @@ function PortfolioContent() {
           if (d.profile?.name) setDisplayName(d.profile.name)
         })
         .catch(() => setLoading(false))
-    )
-  }, [ready, authenticated, getAccessToken])
+    })
+  }, [ready, authenticated, getAccessToken, user])
 
   if (!ready || loading) {
     return (
