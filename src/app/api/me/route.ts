@@ -7,6 +7,90 @@ const privy = new PrivyClient(
   process.env.PRIVY_APP_SECRET!
 )
 
+function extractEmail(privyUser: any): string | null {
+  const emailAccount = privyUser.linkedAccounts?.find((a: any) => a.type === 'email')
+  const googleAccount = privyUser.linkedAccounts?.find((a: any) => a.type === 'google_oauth')
+  const raw = emailAccount?.address || googleAccount?.email || null
+  return raw && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw) ? raw : null
+}
+
+async function resolveProfile(admin: any, privyUserId: string) {
+  // 1. Fast path: look up by privy_id
+  const { data: byPrivyId } = await admin
+    .from('profiles')
+    .select('*')
+    .eq('privy_id', privyUserId)
+    .single()
+  if (byPrivyId) return byPrivyId
+
+  // 2. Fetch Privy user to get the real email
+  let privyUser: any = null
+  try { privyUser = await privy.getUser(privyUserId) } catch { return null }
+
+  const email = extractEmail(privyUser)
+  const embeddedWallet = privyUser.linkedAccounts?.find(
+    (a: any) => a.type === 'wallet' && a.walletClientType === 'privy'
+  ) as any
+  const walletAddress = embeddedWallet?.address || null
+  const googleAccount = privyUser.linkedAccounts?.find((a: any) => a.type === 'google_oauth') as any
+  const name = googleAccount?.name || (email ? email.split('@')[0] : 'User')
+
+  // 3. Look up by email — covers users who logged in with a different method / device
+  if (email) {
+    const { data: byEmail } = await admin
+      .from('profiles')
+      .select('*')
+      .eq('email', email)
+      .single()
+
+    if (byEmail) {
+      // Link this privy_id to the existing profile so future lookups are instant
+      if (!byEmail.privy_id) {
+        await admin.from('profiles')
+          .update({ privy_id: privyUserId, wallet_address: walletAddress || byEmail.wallet_address })
+          .eq('id', byEmail.id)
+      }
+      return byEmail
+    }
+  }
+
+  // 4. Create fresh profile
+  const { data: newProfile } = await admin.from('profiles').insert({
+    privy_id: privyUserId,
+    email,
+    name,
+    balance_brl: 0,
+    is_admin: false,
+    wallet_address: walletAddress,
+  }).select().single()
+
+  return newProfile
+}
+
+export async function GET(req: NextRequest) {
+  const authHeader = req.headers.get('authorization')
+  if (!authHeader) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  try {
+    const token = authHeader.replace('Bearer ', '')
+    const claims = await privy.verifyAuthToken(token)
+    const admin = await createAdminClient()
+
+    const profile = await resolveProfile(admin, claims.userId)
+    if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
+
+    return NextResponse.json({
+      balance: profile.balance_brl || 0,
+      is_admin: profile.is_admin || false,
+      name: profile.name || 'User',
+      wallet_address: profile.wallet_address || null,
+      avatar_url: profile.avatar_url || null,
+    })
+  } catch {
+    return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+  }
+}
+
 export async function PATCH(req: NextRequest) {
   const authHeader = req.headers.get('authorization')
   if (!authHeader) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -22,97 +106,16 @@ export async function PATCH(req: NextRequest) {
     }
 
     const admin = await createAdminClient()
+    const profile = await resolveProfile(admin, claims.userId)
+    if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
+
     const { error } = await admin
       .from('profiles')
       .update({ name: trimmed })
-      .eq('privy_id', claims.userId)
+      .eq('id', profile.id)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ name: trimmed })
-  } catch {
-    return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
-  }
-}
-
-export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get('authorization')
-  if (!authHeader) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  try {
-    const token = authHeader.replace('Bearer ', '')
-    const claims = await privy.verifyAuthToken(token)
-    const privyUserId = claims.userId
-
-    const admin = await createAdminClient()
-
-    let { data: profile } = await admin
-      .from('profiles')
-      .select('id, balance_brl, is_admin, name, email, wallet_address, avatar_url')
-      .eq('privy_id', privyUserId)
-      .single()
-
-    // Fetch Privy user separately so failures don't break the balance response
-    try {
-      const privyUser = await privy.getUser(privyUserId)
-      const embeddedWallet = privyUser.linkedAccounts?.find(
-        (a: any) => a.type === 'wallet' && a.walletClientType === 'privy'
-      ) as any
-      const walletAddress = embeddedWallet?.address || null
-
-      if (!profile) {
-        const emailAccount = privyUser.linkedAccounts?.find((a: any) => a.type === 'email') as any
-        const googleAccount = privyUser.linkedAccounts?.find((a: any) => a.type === 'google_oauth') as any
-        const rawEmail = emailAccount?.address || googleAccount?.email || null
-        // Only use value if it looks like a real email (Privy can return internal IDs here)
-        const email = rawEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail) ? rawEmail : null
-        const name = googleAccount?.name || (email ? email.split('@')[0] : 'User')
-
-        // If another profile already exists with this email (different privy session / device),
-        // claim it by setting the privy_id — avoids creating duplicate accounts.
-        if (email) {
-          const { data: existing } = await admin
-            .from('profiles')
-            .select('*')
-            .eq('email', email)
-            .is('privy_id', null)
-            .single()
-
-          if (existing) {
-            await admin.from('profiles')
-              .update({ privy_id: privyUserId, wallet_address: walletAddress || existing.wallet_address })
-              .eq('id', existing.id)
-            profile = { ...existing, privy_id: privyUserId }
-          }
-        }
-
-        if (!profile) {
-          const { data: newProfile } = await admin.from('profiles').insert({
-            privy_id: privyUserId,
-            email,
-            name,
-            balance_brl: 0,
-            is_admin: false,
-            wallet_address: walletAddress,
-          }).select().single()
-          profile = newProfile
-        }
-      } else if (walletAddress && !profile.wallet_address) {
-        await admin.from('profiles').update({ wallet_address: walletAddress }).eq('privy_id', privyUserId)
-        profile.wallet_address = walletAddress
-      }
-    } catch {
-      // Privy getUser failed — return whatever we have from the DB
-    }
-
-    if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
-
-    return NextResponse.json({
-      balance: profile?.balance_brl || 0,
-      is_admin: profile?.is_admin || false,
-      name: profile?.name || 'User',
-      wallet_address: profile?.wallet_address || null,
-      avatar_url: (profile as any)?.avatar_url || null,
-    })
   } catch {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
   }
