@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PrivyClient } from '@privy-io/server-auth'
 import { createAdminClient } from '@/lib/supabase/server'
+import { resolveProfile } from '@/lib/resolveProfile'
 
 const privy = new PrivyClient(
   process.env.NEXT_PUBLIC_PRIVY_APP_ID!,
@@ -30,8 +31,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const claims = await privy.verifyAuthToken(token)
     const admin = await createAdminClient()
 
-    const { data: profile } = await admin
-      .from('profiles').select('id').eq('privy_id', claims.userId).single()
+    const profile = await resolveProfile(admin, claims.userId)
     if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
 
     const { content } = await req.json()

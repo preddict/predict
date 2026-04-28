@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PrivyClient } from '@privy-io/server-auth'
 import { createAdminClient } from '@/lib/supabase/server'
+import { resolveProfile } from '@/lib/resolveProfile'
 
 const privy = new PrivyClient(
   process.env.NEXT_PUBLIC_PRIVY_APP_ID!,
@@ -10,8 +11,7 @@ const privy = new PrivyClient(
 async function getProfile(token: string) {
   const claims = await privy.verifyAuthToken(token)
   const admin = await createAdminClient()
-  const { data } = await admin.from('profiles').select('id').eq('privy_id', claims.userId).single()
-  return data
+  return resolveProfile(admin, claims.userId)
 }
 
 export async function GET(req: NextRequest) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PrivyClient } from '@privy-io/server-auth'
 import { createAdminClient } from '@/lib/supabase/server'
+import { resolveProfile } from '@/lib/resolveProfile'
 import { sendDepositConfirmedEmail } from '@/lib/email'
 
 const privy = new PrivyClient(
@@ -42,11 +43,7 @@ export async function POST(req: NextRequest) {
     const claims = await privy.verifyAuthToken(token)
     const admin = await createAdminClient()
 
-    const { data: profile } = await admin
-      .from('profiles')
-      .select('id, name, email, balance_brl, wallet_address, usdc_snapshot')
-      .eq('privy_id', claims.userId)
-      .single()
+    const profile = await resolveProfile(admin, claims.userId)
 
     if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
     if (!profile.wallet_address) return NextResponse.json({ error: 'No wallet found' }, { status: 400 })

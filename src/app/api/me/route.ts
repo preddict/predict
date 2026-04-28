@@ -1,83 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PrivyClient } from '@privy-io/server-auth'
 import { createAdminClient } from '@/lib/supabase/server'
+import { resolveProfile } from '@/lib/resolveProfile'
 
 const privy = new PrivyClient(
   process.env.NEXT_PUBLIC_PRIVY_APP_ID!,
   process.env.PRIVY_APP_SECRET!
 )
-
-function extractEmail(privyUser: any): string | null {
-  const emailAccount = privyUser.linkedAccounts?.find((a: any) => a.type === 'email')
-  const googleAccount = privyUser.linkedAccounts?.find((a: any) => a.type === 'google_oauth')
-  const raw = emailAccount?.address || googleAccount?.email || null
-  return raw && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw) ? raw : null
-}
-
-// Retry privy.getUser up to 3 times — avoids creating empty profiles on transient failures
-async function getPrivyUser(privyUserId: string): Promise<any | null> {
-  for (let i = 0; i < 3; i++) {
-    try {
-      return await privy.getUser(privyUserId)
-    } catch {
-      if (i < 2) await new Promise(r => setTimeout(r, 600 * (i + 1)))
-    }
-  }
-  return null
-}
-
-async function resolveProfile(admin: any, privyUserId: string) {
-  // 1. Fast path: exact privy_id match
-  const { data: byPrivyId } = await admin
-    .from('profiles').select('*').eq('privy_id', privyUserId).single()
-  if (byPrivyId) return byPrivyId
-
-  // 2. Secondary: check privy_ids array (other linked devices)
-  const { data: byArray } = await admin
-    .from('profiles').select('*')
-    .contains('privy_ids', [privyUserId])
-    .single()
-  if (byArray) return byArray
-
-  // 3. Must verify identity via Privy before creating / linking a profile
-  const privyUser = await getPrivyUser(privyUserId)
-  if (!privyUser) return null  // transient failure — don't create empty profile
-
-  const email = extractEmail(privyUser)
-  const embeddedWallet = privyUser.linkedAccounts?.find(
-    (a: any) => a.type === 'wallet' && a.walletClientType === 'privy'
-  ) as any
-  const walletAddress = embeddedWallet?.address || null
-  const googleAccount = privyUser.linkedAccounts?.find((a: any) => a.type === 'google_oauth') as any
-  const name = googleAccount?.name || (email ? email.split('@')[0] : 'User')
-
-  // 4. Email fallback: same person logged in via a different method / device
-  if (email) {
-    const { data: byEmail } = await admin
-      .from('profiles').select('*').eq('email', email).single()
-
-    if (byEmail) {
-      const updatedIds = Array.from(new Set([...(byEmail.privy_ids || []), privyUserId]))
-      await admin.from('profiles')
-        .update({ privy_ids: updatedIds, wallet_address: walletAddress || byEmail.wallet_address })
-        .eq('id', byEmail.id)
-      return byEmail
-    }
-  }
-
-  // 5. Genuinely new user
-  const { data: newProfile } = await admin.from('profiles').insert({
-    privy_id: privyUserId,
-    privy_ids: [privyUserId],
-    email,
-    name,
-    balance_brl: 0,
-    is_admin: false,
-    wallet_address: walletAddress,
-  }).select().single()
-
-  return newProfile
-}
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization')
@@ -97,7 +26,6 @@ export async function GET(req: NextRequest) {
       name: profile.name || 'User',
       wallet_address: profile.wallet_address || null,
       avatar_url: profile.avatar_url || null,
-      privy_id: claims.userId,
     })
   } catch {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
