@@ -14,16 +14,24 @@ function extractEmail(privyUser: any): string | null {
   return raw && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw) ? raw : null
 }
 
+async function addPrivyId(admin: any, profileId: string, privyUserId: string) {
+  await admin.rpc('append_privy_id', { p_profile_id: profileId, p_privy_id: privyUserId })
+}
+
 async function resolveProfile(admin: any, privyUserId: string) {
-  // 1. Fast path: look up by privy_id
+  // 1. Fast path: look up by primary privy_id
   const { data: byPrivyId } = await admin
-    .from('profiles')
-    .select('*')
-    .eq('privy_id', privyUserId)
-    .single()
+    .from('profiles').select('*').eq('privy_id', privyUserId).single()
   if (byPrivyId) return byPrivyId
 
-  // 2. Fetch Privy user to get the real email (best-effort)
+  // 2. Look up by secondary privy_ids array (other devices already linked)
+  const { data: byArray } = await admin
+    .from('profiles').select('*')
+    .contains('privy_ids', [privyUserId])
+    .single()
+  if (byArray) return byArray
+
+  // 3. Fetch Privy user for email-based fallback (best-effort)
   let privyUser: any = null
   try { privyUser = await privy.getUser(privyUserId) } catch { /* continue */ }
 
@@ -35,28 +43,25 @@ async function resolveProfile(admin: any, privyUserId: string) {
   const googleAccount = privyUser?.linkedAccounts?.find((a: any) => a.type === 'google_oauth') as any
   const name = googleAccount?.name || (email ? email.split('@')[0] : 'User')
 
-  // 3. Look up by email — covers users who logged in with a different method / device
+  // 4. Look up by email — same person, different login session
   if (email) {
     const { data: byEmail } = await admin
-      .from('profiles')
-      .select('*')
-      .eq('email', email)
-      .single()
+      .from('profiles').select('*').eq('email', email).single()
 
     if (byEmail) {
-      // Link this privy_id to the existing profile so future lookups are instant
-      if (!byEmail.privy_id) {
-        await admin.from('profiles')
-          .update({ privy_id: privyUserId, wallet_address: walletAddress || byEmail.wallet_address })
-          .eq('id', byEmail.id)
-      }
+      // Save this privy_id to the array for fast lookup next time
+      const updatedIds = Array.from(new Set([...(byEmail.privy_ids || []), privyUserId]))
+      await admin.from('profiles')
+        .update({ privy_ids: updatedIds, wallet_address: walletAddress || byEmail.wallet_address })
+        .eq('id', byEmail.id)
       return byEmail
     }
   }
 
-  // 4. Create fresh profile
+  // 5. Create fresh profile
   const { data: newProfile } = await admin.from('profiles').insert({
     privy_id: privyUserId,
+    privy_ids: [privyUserId],
     email,
     name,
     balance_brl: 0,
@@ -85,6 +90,7 @@ export async function GET(req: NextRequest) {
       name: profile.name || 'User',
       wallet_address: profile.wallet_address || null,
       avatar_url: profile.avatar_url || null,
+      privy_id: claims.userId,
     })
   } catch {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
@@ -110,9 +116,7 @@ export async function PATCH(req: NextRequest) {
     if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
 
     const { error } = await admin
-      .from('profiles')
-      .update({ name: trimmed })
-      .eq('id', profile.id)
+      .from('profiles').update({ name: trimmed }).eq('id', profile.id)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ name: trimmed })
