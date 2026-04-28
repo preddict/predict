@@ -21,6 +21,15 @@ async function getPrivyUserWithRetry(privyUserId: string): Promise<any | null> {
   return null
 }
 
+async function findByEmail(admin: any, email: string) {
+  // Case-insensitive email lookup
+  const { data } = await admin
+    .from('profiles').select('*')
+    .ilike('email', email)
+    .single()
+  return data
+}
+
 export async function resolveProfile(admin: any, privyUserId: string) {
   // 1. Fast path: exact privy_id match
   const { data: byPrivyId } = await admin
@@ -60,11 +69,8 @@ export async function resolveProfile(admin: any, privyUserId: string) {
 
   // 4. Email fallback: same person, different login method or device
   if (email) {
-    const { data: byEmail } = await admin
-      .from('profiles').select('*').eq('email', email).single()
-
+    const byEmail = await findByEmail(admin, email)
     if (byEmail) {
-      // Link this new device's privy_id to the existing profile
       const updatedIds = Array.from(new Set([...(byEmail.privy_ids || []), privyUserId]))
       await admin.from('profiles')
         .update({
@@ -77,32 +83,53 @@ export async function resolveProfile(admin: any, privyUserId: string) {
     }
   }
 
-  // 5. Genuinely new user — create profile
-  try {
-    const { data: newProfile } = await admin.from('profiles').insert({
+  // 5. Create new profile — check INSERT errors explicitly
+  const { data: newProfile, error: insertError } = await admin.from('profiles').insert({
+    privy_id: privyUserId,
+    privy_ids: [privyUserId],
+    email,
+    name,
+    balance_brl: 0,
+    is_admin: false,
+    wallet_address: walletAddress,
+  }).select().single()
+
+  if (newProfile) return newProfile
+
+  // INSERT failed (e.g. unique constraint) — profile already exists, find it
+  if (insertError) {
+    console.error('[resolveProfile] INSERT failed:', insertError.message, 'privy_id:', privyUserId, 'email:', email)
+
+    // Try email again (INSERT may have failed due to duplicate email)
+    if (email) {
+      const byEmailRetry = await findByEmail(admin, email)
+      if (byEmailRetry) {
+        // Link this privy_id now
+        const updatedIds = Array.from(new Set([...(byEmailRetry.privy_ids || []), privyUserId]))
+        await admin.from('profiles')
+          .update({ privy_ids: updatedIds, privy_id: byEmailRetry.privy_id || privyUserId })
+          .eq('id', byEmailRetry.id)
+        return { ...byEmailRetry, privy_ids: updatedIds }
+      }
+    }
+
+    // Try privy_id again (race condition — maybe just inserted)
+    const { data: byPrivyIdRetry } = await admin
+      .from('profiles').select('*').eq('privy_id', privyUserId).single()
+    if (byPrivyIdRetry) return byPrivyIdRetry
+
+    // Last resort: try INSERT without privy_ids column
+    const { data: fallback } = await admin.from('profiles').insert({
       privy_id: privyUserId,
-      privy_ids: [privyUserId],
       email,
       name,
       balance_brl: 0,
       is_admin: false,
       wallet_address: walletAddress,
     }).select().single()
-
-    if (newProfile) return newProfile
-  } catch {
-    // privy_ids column may not exist — retry without it
-    const { data: newProfile } = await admin.from('profiles').insert({
-      privy_id: privyUserId,
-      email,
-      name,
-      balance_brl: 0,
-      is_admin: false,
-      wallet_address: walletAddress,
-    }).select().single()
-
-    return newProfile
+    if (fallback) return fallback
   }
 
+  console.error('[resolveProfile] All lookups exhausted for privy_id:', privyUserId)
   return null
 }
