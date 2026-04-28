@@ -23,16 +23,16 @@ async function resolveProfile(admin: any, privyUserId: string) {
     .single()
   if (byPrivyId) return byPrivyId
 
-  // 2. Fetch Privy user to get the real email
+  // 2. Fetch Privy user to get the real email (best-effort)
   let privyUser: any = null
-  try { privyUser = await privy.getUser(privyUserId) } catch { return null }
+  try { privyUser = await privy.getUser(privyUserId) } catch { /* continue */ }
 
-  const email = extractEmail(privyUser)
-  const embeddedWallet = privyUser.linkedAccounts?.find(
+  const email = privyUser ? extractEmail(privyUser) : null
+  const embeddedWallet = privyUser?.linkedAccounts?.find(
     (a: any) => a.type === 'wallet' && a.walletClientType === 'privy'
   ) as any
   const walletAddress = embeddedWallet?.address || null
-  const googleAccount = privyUser.linkedAccounts?.find((a: any) => a.type === 'google_oauth') as any
+  const googleAccount = privyUser?.linkedAccounts?.find((a: any) => a.type === 'google_oauth') as any
   const name = googleAccount?.name || (email ? email.split('@')[0] : 'User')
 
   // 3. Look up by email — covers users who logged in with a different method / device
