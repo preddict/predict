@@ -17,7 +17,7 @@ import EditableName from '@/components/portfolio/EditableName'
 type Tab = 'open' | 'resolved' | 'history'
 
 function PortfolioContent() {
-  const { ready, authenticated, getAccessToken } = usePrivy()
+  const { ready, authenticated, getAccessToken, user } = usePrivy()
   const searchParams = useSearchParams()
   const deposit = searchParams.get('deposit') || undefined
 
@@ -173,6 +173,11 @@ function PortfolioContent() {
             <TransactionHistory transactions={transactions} />
           </div>
         )}
+
+        {/* TEMP DEBUG — remove after fixing multi-device sync */}
+        <p className="mt-8 text-xs text-muted-foreground break-all">
+          privy_id: {user?.id || '—'}
+        </p>
       </main>
     </div>
   )
