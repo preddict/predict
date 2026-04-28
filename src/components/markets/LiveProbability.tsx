@@ -19,14 +19,14 @@ export default function LiveProbability() {
         <span className="text-xs text-muted-foreground">Live</span>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 mb-4">
-        <div className={`rounded-xl bg-green-50 border border-green-100 p-4 text-center transition-all duration-500 ${live.flash === 'up' ? 'ring-2 ring-green-400' : ''}`}>
-          <div className="text-4xl font-bold text-green-600 mb-1 transition-all duration-300">{yesPercent}%</div>
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className={`rounded-xl bg-green-50 border border-green-100 p-3 sm:p-4 text-center transition-all duration-500 ${live.flash === 'up' ? 'ring-2 ring-green-400' : ''}`}>
+          <div className="text-2xl sm:text-4xl font-bold text-green-600 mb-1 transition-all duration-300">{yesPercent}%</div>
           <div className="text-xs text-muted-foreground mb-1">Yes chance</div>
           <div className="text-xs text-green-600 font-medium">${live.yes_price.toFixed(3)} / share</div>
         </div>
-        <div className={`rounded-xl bg-red-50 border border-red-100 p-4 text-center transition-all duration-500 ${live.flash === 'down' ? 'ring-2 ring-red-400' : ''}`}>
-          <div className="text-4xl font-bold text-red-500 mb-1 transition-all duration-300">{noPercent}%</div>
+        <div className={`rounded-xl bg-red-50 border border-red-100 p-3 sm:p-4 text-center transition-all duration-500 ${live.flash === 'down' ? 'ring-2 ring-red-400' : ''}`}>
+          <div className="text-2xl sm:text-4xl font-bold text-red-500 mb-1 transition-all duration-300">{noPercent}%</div>
           <div className="text-xs text-muted-foreground mb-1">No chance</div>
           <div className="text-xs text-red-500 font-medium">${live.no_price.toFixed(3)} / share</div>
         </div>

@@ -109,7 +109,7 @@ function PortfolioContent() {
       <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8">
         <DepositToast status={deposit} />
 
-        <div className="mb-8 flex items-start justify-between gap-4">
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div className="flex items-center gap-4">
             <AvatarUpload
               currentUrl={avatarUrl}
@@ -121,10 +121,10 @@ function PortfolioContent() {
                 initialName={displayName || profile?.name || 'User'}
                 onSaved={name => setDisplayName(name)}
               />
-              <p className="text-sm text-muted-foreground mt-0.5">Click the photo or name to edit</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Toque na foto ou nome para editar</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 sm:shrink-0">
             <WithdrawButton balance={profile?.balance_brl || 0} onSuccess={fetchPortfolio} />
             <DepositButton />
           </div>

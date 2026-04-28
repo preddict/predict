@@ -42,7 +42,7 @@ export default function MarketCard({ market }: { market: Market }) {
       <div className="group rounded-2xl border border-border bg-card hover:shadow-md hover:border-foreground/20 transition-all duration-200 overflow-hidden h-full flex flex-col">
 
         {/* Image — always a real photo */}
-        <div className="relative h-36 shrink-0 overflow-hidden">
+        <div className="relative h-28 sm:h-36 shrink-0 overflow-hidden">
           <MarketImage
             src={imageUrl}
             alt={title}

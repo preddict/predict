@@ -126,7 +126,7 @@ export default function BetPanel() {
   const quickAmounts = [10, 50, 100, 500]
 
   return (
-    <div className="sticky top-20 space-y-3">
+    <div className="lg:sticky lg:top-20 space-y-3">
 
       {/* User positions */}
       {authenticated && positions.length > 0 && (
@@ -226,7 +226,7 @@ export default function BetPanel() {
                 </div>
 
                 {/* Quick amounts */}
-                <div className="grid grid-cols-4 gap-1.5 mb-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mb-4">
                   {quickAmounts.map(v => (
                     <button
                       key={v}

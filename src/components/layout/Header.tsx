@@ -81,15 +81,15 @@ export default function Header() {
             <span className="text-base font-bold tracking-widest text-foreground">PREDICT</span>
           </Link>
 
-          <form onSubmit={handleSearch} className="flex-1 max-w-sm">
+          <form onSubmit={handleSearch} className="flex-1 max-w-xs sm:max-w-sm">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Search markets..."
+                placeholder="Search..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-4 py-1.5 text-sm bg-muted border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:border-foreground transition-colors"
+                className="w-full pl-8 pr-3 py-1.5 text-sm bg-muted border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:border-foreground transition-colors"
               />
             </div>
           </form>
@@ -101,9 +101,9 @@ export default function Header() {
               <>
                 <NotificationBell />
                 <Link href="/portfolio">
-                  <button className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-muted hover:bg-secondary transition-colors text-sm font-medium">
-                    <Wallet className="h-3.5 w-3.5 text-muted-foreground" />
-                    {balance !== null ? `$${balance.toFixed(2)}` : '...'}
+                  <button className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg border border-border bg-muted hover:bg-secondary transition-colors text-xs sm:text-sm font-medium">
+                    <Wallet className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span>{balance !== null ? `$${balance.toFixed(2)}` : '...'}</span>
                   </button>
                 </Link>
                 <DropdownMenu>

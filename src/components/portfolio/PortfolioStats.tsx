@@ -45,15 +45,15 @@ export default function PortfolioStats({ balance, invested, currentValue, resolv
   ]
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       {stats.map(({ label, value, icon: Icon, sub, subColor, valueColor }) => (
-        <div key={label} className="rounded-xl border border-border bg-card p-5">
-          <div className="flex items-center justify-between mb-3">
+        <div key={label} className="rounded-xl border border-border bg-card p-3 sm:p-5">
+          <div className="flex items-center justify-between mb-2 sm:mb-3">
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</span>
-            <Icon className="h-4 w-4 text-muted-foreground" />
+            <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
           </div>
-          <div className={`text-2xl font-bold ${valueColor || 'text-foreground'}`}>{value}</div>
-          {sub && <p className={`text-xs mt-1 ${subColor || 'text-muted-foreground'}`}>{sub}</p>}
+          <div className={`text-lg sm:text-2xl font-bold ${valueColor || 'text-foreground'}`}>{value}</div>
+          {sub && <p className={`text-xs mt-1 ${subColor || 'text-muted-foreground'} line-clamp-1`}>{sub}</p>}
         </div>
       ))}
     </div>

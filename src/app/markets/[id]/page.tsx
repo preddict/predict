@@ -111,9 +111,9 @@ export default async function MarketPage({ params }: PageProps) {
           <div className="lg:col-span-2 space-y-5">
 
             {/* Header card */}
-            <div className="rounded-xl border border-border bg-card p-6">
-              <div className="flex gap-4">
-                <div className="shrink-0 w-16 h-16 rounded-xl overflow-hidden border border-border bg-muted">
+            <div className="rounded-xl border border-border bg-card p-4 sm:p-6">
+              <div className="flex gap-3 sm:gap-4">
+                <div className="shrink-0 w-12 h-12 sm:w-16 sm:h-16 rounded-xl overflow-hidden border border-border bg-muted">
                   <MarketImage src={marketImage} alt={marketTitle} width={64} height={64} className="w-full h-full object-cover" category={m.category} marketId={m.id} />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -152,16 +152,16 @@ export default async function MarketPage({ params }: PageProps) {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
               {[
-                { icon: TrendingUp, label: 'Total volume', value: formatVolume(m.volume_brl) },
+                { icon: TrendingUp, label: 'Volume', value: formatVolume(m.volume_brl) },
                 { icon: Clock, label: 'Closes', value: formatDate(m.closes_at) },
                 { icon: Users, label: 'Bettors', value: m.total_bettors ? `${m.total_bettors}` : '—' },
               ].map(({ icon: Icon, label, value }) => (
-                <div key={label} className="rounded-xl border border-border bg-card p-4 text-center">
-                  <Icon className="h-4 w-4 text-muted-foreground mx-auto mb-2" />
-                  <div className="text-xs text-muted-foreground mb-1">{label}</div>
-                  <div className="text-sm font-semibold text-foreground">{value}</div>
+                <div key={label} className="rounded-xl border border-border bg-card p-3 sm:p-4 text-center">
+                  <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground mx-auto mb-1.5 sm:mb-2" />
+                  <div className="text-xs text-muted-foreground mb-0.5 sm:mb-1 leading-tight">{label}</div>
+                  <div className="text-xs sm:text-sm font-semibold text-foreground leading-tight">{value}</div>
                 </div>
               ))}
             </div>
