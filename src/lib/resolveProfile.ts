@@ -28,29 +28,35 @@ export async function resolveProfile(admin: any, privyUserId: string) {
   if (byPrivyId) return byPrivyId
 
   // 2. Secondary: privy_ids array (other linked devices)
-  const { data: byArray } = await admin
-    .from('profiles').select('*')
-    .contains('privy_ids', [privyUserId])
-    .single()
-  if (byArray) {
-    // Ensure privy_id column also points to a known id for fast future lookups
-    if (!byArray.privy_id) {
-      await admin.from('profiles').update({ privy_id: privyUserId }).eq('id', byArray.id)
+  try {
+    const { data: byArray } = await admin
+      .from('profiles').select('*')
+      .contains('privy_ids', [privyUserId])
+      .single()
+    if (byArray) {
+      if (!byArray.privy_id) {
+        await admin.from('profiles').update({ privy_id: privyUserId }).eq('id', byArray.id)
+      }
+      return byArray
     }
-    return byArray
-  }
+  } catch { /* privy_ids column may not exist yet */ }
 
-  // 3. Must verify identity before creating / linking
+  // 3. Fetch Privy user info to enable email lookup
   const privyUser = await getPrivyUserWithRetry(privyUserId)
-  if (!privyUser) return null
 
-  const email = extractEmail(privyUser)
-  const embeddedWallet = privyUser.linkedAccounts?.find(
-    (a: any) => a.type === 'wallet' && a.walletClientType === 'privy'
-  ) as any
-  const walletAddress = embeddedWallet?.address || null
-  const googleAccount = privyUser.linkedAccounts?.find((a: any) => a.type === 'google_oauth') as any
-  const name = googleAccount?.name || (email ? email.split('@')[0] : 'User')
+  let email: string | null = null
+  let walletAddress: string | null = null
+  let name = 'User'
+
+  if (privyUser) {
+    email = extractEmail(privyUser)
+    const embeddedWallet = privyUser.linkedAccounts?.find(
+      (a: any) => a.type === 'wallet' && a.walletClientType === 'privy'
+    ) as any
+    walletAddress = embeddedWallet?.address || null
+    const googleAccount = privyUser.linkedAccounts?.find((a: any) => a.type === 'google_oauth') as any
+    name = googleAccount?.name || (email ? email.split('@')[0] : 'User')
+  }
 
   // 4. Email fallback: same person, different login method or device
   if (email) {
@@ -58,24 +64,45 @@ export async function resolveProfile(admin: any, privyUserId: string) {
       .from('profiles').select('*').eq('email', email).single()
 
     if (byEmail) {
+      // Link this new device's privy_id to the existing profile
       const updatedIds = Array.from(new Set([...(byEmail.privy_ids || []), privyUserId]))
       await admin.from('profiles')
-        .update({ privy_ids: updatedIds, wallet_address: walletAddress || byEmail.wallet_address })
+        .update({
+          privy_ids: updatedIds,
+          privy_id: byEmail.privy_id || privyUserId,
+          wallet_address: walletAddress || byEmail.wallet_address,
+        })
         .eq('id', byEmail.id)
-      return byEmail
+      return { ...byEmail, privy_ids: updatedIds }
     }
   }
 
-  // 5. Genuinely new user
-  const { data: newProfile } = await admin.from('profiles').insert({
-    privy_id: privyUserId,
-    privy_ids: [privyUserId],
-    email,
-    name,
-    balance_brl: 0,
-    is_admin: false,
-    wallet_address: walletAddress,
-  }).select().single()
+  // 5. Genuinely new user — create profile
+  try {
+    const { data: newProfile } = await admin.from('profiles').insert({
+      privy_id: privyUserId,
+      privy_ids: [privyUserId],
+      email,
+      name,
+      balance_brl: 0,
+      is_admin: false,
+      wallet_address: walletAddress,
+    }).select().single()
 
-  return newProfile
+    if (newProfile) return newProfile
+  } catch {
+    // privy_ids column may not exist — retry without it
+    const { data: newProfile } = await admin.from('profiles').insert({
+      privy_id: privyUserId,
+      email,
+      name,
+      balance_brl: 0,
+      is_admin: false,
+      wallet_address: walletAddress,
+    }).select().single()
+
+    return newProfile
+  }
+
+  return null
 }
