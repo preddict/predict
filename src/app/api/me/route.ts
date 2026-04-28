@@ -62,18 +62,40 @@ export async function GET(req: NextRequest) {
       if (!profile) {
         const emailAccount = privyUser.linkedAccounts?.find((a: any) => a.type === 'email') as any
         const googleAccount = privyUser.linkedAccounts?.find((a: any) => a.type === 'google_oauth') as any
-        const email = emailAccount?.address || googleAccount?.email || null
-        const name = googleAccount?.name || email?.split('@')[0] || 'User'
+        const rawEmail = emailAccount?.address || googleAccount?.email || null
+        // Only use value if it looks like a real email (Privy can return internal IDs here)
+        const email = rawEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail) ? rawEmail : null
+        const name = googleAccount?.name || (email ? email.split('@')[0] : 'User')
 
-        const { data: newProfile } = await admin.from('profiles').insert({
-          privy_id: privyUserId,
-          email,
-          name,
-          balance_brl: 0,
-          is_admin: false,
-          wallet_address: walletAddress,
-        }).select().single()
-        profile = newProfile
+        // If another profile already exists with this email (different privy session / device),
+        // claim it by setting the privy_id — avoids creating duplicate accounts.
+        if (email) {
+          const { data: existing } = await admin
+            .from('profiles')
+            .select('*')
+            .eq('email', email)
+            .is('privy_id', null)
+            .single()
+
+          if (existing) {
+            await admin.from('profiles')
+              .update({ privy_id: privyUserId, wallet_address: walletAddress || existing.wallet_address })
+              .eq('id', existing.id)
+            profile = { ...existing, privy_id: privyUserId }
+          }
+        }
+
+        if (!profile) {
+          const { data: newProfile } = await admin.from('profiles').insert({
+            privy_id: privyUserId,
+            email,
+            name,
+            balance_brl: 0,
+            is_admin: false,
+            wallet_address: walletAddress,
+          }).select().single()
+          profile = newProfile
+        }
       } else if (walletAddress && !profile.wallet_address) {
         await admin.from('profiles').update({ wallet_address: walletAddress }).eq('privy_id', privyUserId)
         profile.wallet_address = walletAddress
