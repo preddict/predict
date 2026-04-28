@@ -14,42 +14,49 @@ function extractEmail(privyUser: any): string | null {
   return raw && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw) ? raw : null
 }
 
-async function addPrivyId(admin: any, profileId: string, privyUserId: string) {
-  await admin.rpc('append_privy_id', { p_profile_id: profileId, p_privy_id: privyUserId })
+// Retry privy.getUser up to 3 times — avoids creating empty profiles on transient failures
+async function getPrivyUser(privyUserId: string): Promise<any | null> {
+  for (let i = 0; i < 3; i++) {
+    try {
+      return await privy.getUser(privyUserId)
+    } catch {
+      if (i < 2) await new Promise(r => setTimeout(r, 600 * (i + 1)))
+    }
+  }
+  return null
 }
 
 async function resolveProfile(admin: any, privyUserId: string) {
-  // 1. Fast path: look up by primary privy_id
+  // 1. Fast path: exact privy_id match
   const { data: byPrivyId } = await admin
     .from('profiles').select('*').eq('privy_id', privyUserId).single()
   if (byPrivyId) return byPrivyId
 
-  // 2. Look up by secondary privy_ids array (other devices already linked)
+  // 2. Secondary: check privy_ids array (other linked devices)
   const { data: byArray } = await admin
     .from('profiles').select('*')
     .contains('privy_ids', [privyUserId])
     .single()
   if (byArray) return byArray
 
-  // 3. Fetch Privy user for email-based fallback (best-effort)
-  let privyUser: any = null
-  try { privyUser = await privy.getUser(privyUserId) } catch { /* continue */ }
+  // 3. Must verify identity via Privy before creating / linking a profile
+  const privyUser = await getPrivyUser(privyUserId)
+  if (!privyUser) return null  // transient failure — don't create empty profile
 
-  const email = privyUser ? extractEmail(privyUser) : null
-  const embeddedWallet = privyUser?.linkedAccounts?.find(
+  const email = extractEmail(privyUser)
+  const embeddedWallet = privyUser.linkedAccounts?.find(
     (a: any) => a.type === 'wallet' && a.walletClientType === 'privy'
   ) as any
   const walletAddress = embeddedWallet?.address || null
-  const googleAccount = privyUser?.linkedAccounts?.find((a: any) => a.type === 'google_oauth') as any
+  const googleAccount = privyUser.linkedAccounts?.find((a: any) => a.type === 'google_oauth') as any
   const name = googleAccount?.name || (email ? email.split('@')[0] : 'User')
 
-  // 4. Look up by email — same person, different login session
+  // 4. Email fallback: same person logged in via a different method / device
   if (email) {
     const { data: byEmail } = await admin
       .from('profiles').select('*').eq('email', email).single()
 
     if (byEmail) {
-      // Save this privy_id to the array for fast lookup next time
       const updatedIds = Array.from(new Set([...(byEmail.privy_ids || []), privyUserId]))
       await admin.from('profiles')
         .update({ privy_ids: updatedIds, wallet_address: walletAddress || byEmail.wallet_address })
@@ -58,7 +65,7 @@ async function resolveProfile(admin: any, privyUserId: string) {
     }
   }
 
-  // 5. Create fresh profile
+  // 5. Genuinely new user
   const { data: newProfile } = await admin.from('profiles').insert({
     privy_id: privyUserId,
     privy_ids: [privyUserId],
@@ -82,7 +89,7 @@ export async function GET(req: NextRequest) {
     const admin = await createAdminClient()
 
     const profile = await resolveProfile(admin, claims.userId)
-    if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
+    if (!profile) return NextResponse.json({ error: 'Service temporarily unavailable' }, { status: 503 })
 
     return NextResponse.json({
       balance: profile.balance_brl || 0,
