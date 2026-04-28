@@ -174,10 +174,6 @@ function PortfolioContent() {
           </div>
         )}
 
-        {/* TEMP DEBUG — remove after fixing multi-device sync */}
-        <p className="mt-8 text-xs text-muted-foreground break-all">
-          privy_id: {user?.id || '—'}
-        </p>
       </main>
     </div>
   )
